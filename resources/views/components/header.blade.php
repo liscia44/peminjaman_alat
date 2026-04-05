@@ -3,18 +3,23 @@
     {{-- Subtle top accent line --}}
     <div class="h-[1px] w-full bg-gradient-to-r from-transparent via-rule/30 to-transparent"></div>
 
-    <div class="mx-auto px-6 lg:px-8 flex items-stretch h-[70px]">
+    <div class="mx-auto px-4 md:px-6 lg:px-8 flex items-stretch h-[70px]">
+
+        {{-- ── MOBILE MENU BUTTON ── --}}
+        <button id="mobileMenuBtn" onclick="toggleSidebar()" class="md:hidden flex items-center justify-center w-10 flex-shrink-0">
+            <i class="fas fa-bars text-paper text-[1.2rem]"></i>
+        </button>
 
         {{-- ── BRAND ── --}}
-        <div class="flex items-center gap-4 flex-shrink-0">
+        <div class="flex items-center gap-2 md:gap-4 flex-shrink-0 flex-1 md:flex-none">
             <div class="w-7 h-7 border border-white/20 flex items-center justify-center flex-shrink-0">
                 <i class="fas fa-wrench text-paper text-[0.55rem]"></i>
             </div>
-            <div>
-                <h1 class="font-serif text-paper text-[1rem] font-normal leading-none tracking-[0.15em] uppercase">
+            <div class="hidden sm:block">
+                <h1 class="font-serif text-paper text-[0.85rem] md:text-[1rem] font-normal leading-none tracking-[0.15em] uppercase">
                     Sistem Peminjaman
                 </h1>
-                <p class="font-sans text-[0.43rem] tracking-[0.38em] uppercase text-paper/35 mt-[3px]">
+                <p class="font-sans text-[0.38rem] md:text-[0.43rem] tracking-[0.38em] uppercase text-paper/35 mt-[3px]">
                     Platform Manajemen
                 </p>
             </div>
@@ -43,7 +48,7 @@
             @endphp
 
             {{-- ── USER IDENTITY ── --}}
-            <div class="flex items-center gap-3.5 px-6 border-l border-white/[0.08]">
+            <div class="flex items-center gap-2 md:gap-3.5 px-3 md:px-6 border-l border-white/[0.08]">
                 <div class="relative flex-shrink-0">
                     <div class="w-8 h-8 bg-white/[0.08] border border-white/15 flex items-center justify-center">
                         <i class="fas fa-{{ $icon }} text-paper/70 text-[0.58rem]"></i>
@@ -67,21 +72,21 @@
             </div>
 
             {{-- ── DIVIDER ── --}}
-            <div class="w-px bg-white/[0.08] my-3.5 ml-4"></div>
+            <div class="hidden md:block w-px bg-white/[0.08] my-3.5 ml-4"></div>
 
             {{-- ── LOGOUT BUTTON ── --}}
-            <div class="flex items-center pl-4">
+            <div class="flex items-center pl-3 md:pl-4">
                 <form method="POST" action="{{ route('logout') }}">
                     @csrf
                     <button
                         type="submit"
-                        class="flex items-center gap-2.5 border border-white/20 px-4 py-2
-                               font-sans text-[0.58rem] font-semibold tracking-[0.22em] uppercase text-paper/70
+                        class="flex items-center gap-2 md:gap-2.5 border border-white/20 px-2 md:px-4 py-2
+                               font-sans text-[0.5rem] md:text-[0.58rem] font-semibold tracking-[0.22em] uppercase text-paper/70
                                hover:bg-white/[0.08] hover:text-paper hover:border-white/35
                                active:scale-[0.98] transition-all duration-150 group"
                     >
-                        <i class="fas fa-right-from-bracket text-[0.6rem] group-hover:translate-x-0.5 transition-transform duration-200"></i>
-                        <span>Keluar</span>
+                        <i class="fas fa-right-from-bracket text-[0.55rem] md:text-[0.6rem] group-hover:translate-x-0.5 transition-transform duration-200"></i>
+                        <span class="hidden sm:inline">Keluar</span>
                     </button>
                 </form>
             </div>

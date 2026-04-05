@@ -44,20 +44,41 @@
 </head>
 <body class="bg-cream font-sans min-h-screen">
 
-    {{-- Header Fixed --}}
+    {{-- Header --}}
     <x-header />
 
+    {{-- Mobile overlay backdrop --}}
+    <div id="sidebarBackdrop" class="hidden fixed inset-0 bg-black/50 z-20 md:hidden" onclick="toggleSidebar()"></div>
+
     <div class="flex pt-[70px]">
-        {{-- Sidebar Fixed --}}
+        {{-- Sidebar --}}
         <x-sidebar />
 
-        {{-- Main Content Scrollable --}}
-        <main class="flex-1 ml-60 overflow-auto">
-            <div class="p-8">
+        {{-- Main Content --}}
+        <main class="flex-1 w-full overflow-auto">
+            <div class="p-4 md:p-8">
                 @yield('content')
             </div>
         </main>
     </div>
+
+    <script>
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const backdrop = document.getElementById('sidebarBackdrop');
+            sidebar.classList.toggle('-translate-x-full');
+            backdrop.classList.toggle('hidden');
+        }
+
+        // Close sidebar when clicking a link
+        document.querySelectorAll('#sidebar a').forEach(link => {
+            link.addEventListener('click', () => {
+                if (window.innerWidth < 768) {
+                    toggleSidebar();
+                }
+            });
+        });
+    </script>
 
 </body>
 </html>

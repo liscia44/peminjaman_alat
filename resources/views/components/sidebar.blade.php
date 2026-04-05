@@ -45,7 +45,7 @@
     }
 @endphp
 
-<aside class="fixed left-0 top-[70px] bottom-0 z-30 w-60 flex-shrink-0 bg-espresso flex flex-col">
+<aside id="sidebar" class="fixed left-0 top-[70px] bottom-0 z-30 w-60 flex-shrink-0 bg-espresso flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0">
 
     {{-- Subtle right edge line --}}
     <div class="absolute right-0 top-0 bottom-0 w-px bg-white/[0.06]"></div>
