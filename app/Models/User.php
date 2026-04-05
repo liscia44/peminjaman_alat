@@ -32,12 +32,28 @@ class User extends Authenticatable
         ];
     }
 
+    // Gunakan 'username' sebagai kolom auth, bukan 'email'
     public function getAuthIdentifierName()
     {
         return 'user_id';
     }
 
-    // Specify route key name
+    public function getAuthPassword()
+    {
+        return $this->password;
+    }
+
+    // Ini yang penting: override kolom yang dipakai Auth::attempt()
+    public function getEmailForPasswordReset()
+    {
+        return $this->username;
+    }
+
+    public function routeNotificationForMail()
+    {
+        return $this->username;
+    }
+
     public function getRouteKeyName()
     {
         return 'user_id';
