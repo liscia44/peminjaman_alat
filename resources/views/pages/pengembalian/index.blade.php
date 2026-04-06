@@ -137,14 +137,14 @@
                 @forelse($pengembalian as $item)
                     <tr class="hover:bg-cream/40 transition-colors duration-100">
 
-                        {{-- Peminjam --}}
+                        {{-- ✅ FIXED: Peminjam --}}
                         <td class="px-4 py-4 font-sans text-[0.78rem] font-medium text-ink whitespace-nowrap">
-                            {{ $item->peminjaman->user->username ?? '—' }}
+                            {{ optional(optional($item->peminjaman)->user)->username ?? '—' }}
                         </td>
 
-                        {{-- Alat --}}
+                        {{-- ✅ FIXED: Alat --}}
                         <td class="px-4 py-4 font-sans text-[0.78rem] text-label whitespace-nowrap">
-                            {{ $item->peminjaman->alat->nama_alat ?? '—' }}
+                            {{ optional(optional($item->peminjaman)->alat)->nama_alat ?? '—' }}
                         </td>
 
                         {{-- Tanggal Kembali --}}
@@ -214,7 +214,7 @@
                                     @if($item->status_denda == 'belum_lunas')
                                         <button 
                                             type="button"
-                                            onclick="openBayarModal({{ $item->pengembalian_id }}, '{{ $item->peminjaman->user->username }}', {{ $item->total_denda }})"
+                                            onclick="openBayarModal({{ $item->pengembalian_id }}, '{{ optional(optional($item->peminjaman)->user)->username ?? 'Unknown' }}', {{ $item->total_denda }})"
                                             class="px-3 py-2 bg-ink text-paper border border-ink font-sans text-[0.55rem] font-semibold tracking-[0.1em] uppercase
                                                    hover:bg-espresso hover:border-espresso transition-all duration-150 flex items-center gap-1.5">
                                             <i class="fas fa-check text-xs"></i>
@@ -295,12 +295,12 @@
                                 @foreach(\App\Models\Peminjaman::with(['user', 'alat'])->where('status', 'disetujui')->whereDoesntHave('pengembalian')->get() as $pinjam)
                                     <option value="{{ $pinjam->peminjaman_id }}"
                                         data-jatuh-tempo="{{ $pinjam->tanggal_kembali_rencana->format('Y-m-d') }}"
-                                        data-user="{{ $pinjam->user->username }}"
-                                        data-alat="{{ $pinjam->alat->nama_alat }}"
-                                        data-harga="{{ $pinjam->alat->harga_alat }}"
-                                        data-persen-rusak="{{ $pinjam->alat->persen_denda_rusak }}"
+                                        data-user="{{ optional($pinjam->user)->username ?? 'Unknown' }}"
+                                        data-alat="{{ optional($pinjam->alat)->nama_alat ?? 'Unknown' }}"
+                                        data-harga="{{ optional($pinjam->alat)->harga_alat ?? 0 }}"
+                                        data-persen-rusak="{{ optional($pinjam->alat)->persen_denda_rusak ?? 30 }}"
                                         data-jumlah="{{ $pinjam->jumlah }}">
-                                        {{ $pinjam->user->username }} — {{ $pinjam->alat->nama_alat }}
+                                        {{ optional($pinjam->user)->username ?? 'Unknown' }} — {{ optional($pinjam->alat)->nama_alat ?? 'Unknown' }}
                                         ({{ $pinjam->tanggal_peminjaman->format('d/m/Y') }}) × {{ $pinjam->jumlah }}
                                     </option>
                                 @endforeach
@@ -407,7 +407,7 @@
                         Proses
                     </button>
                     <button type="button" onclick="closeModal()"
-                        class="flex-1 border border-rule text-label font-sans text-[0.6rem] font-semibold tracking-[0.25em] uppercase py-3.5 hover:border-espresso hover:text-espresso transition-all duration-200">
+                        class="flex-1 border border-rule text-label font-sans text-[0.6rem] font-semibold tracking-[0.25em] uppercase py-3.5 hover:border-espresso hover:text-espresso transition-all duration-150">
                         Batal
                     </button>
                 </div>
@@ -484,7 +484,7 @@
                         ✓ Konfirmasi Pembayaran
                     </button>
                     <button type="button" onclick="closeBayarModal()"
-                        class="flex-1 border border-rule text-label font-sans text-[0.6rem] font-semibold tracking-[0.25em] uppercase py-3.5 hover:border-espresso hover:text-espresso transition-all duration-200">
+                        class="flex-1 border border-rule text-label font-sans text-[0.6rem] font-semibold tracking-[0.25em] uppercase py-3.5 hover:border-espresso hover:text-espresso transition-all duration-150">
                         Batal
                     </button>
                 </div>
