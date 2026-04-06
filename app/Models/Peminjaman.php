@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Str;
 
 class Peminjaman extends Model
 {
@@ -15,6 +16,7 @@ class Peminjaman extends Model
     protected $keyType = 'int';
 
     protected $fillable = [
+        'kode_peminjaman',          // TAMBAH INI
         'user_id',
         'alat_id',
         'jumlah',
@@ -24,6 +26,8 @@ class Peminjaman extends Model
         'status',
         'disetujui_oleh',
         'tanggal_disetujui',
+        'nama_peminjam_guest',      // TAMBAH INI
+        'telepon_peminjam_guest',   // TAMBAH INI
     ];
 
     protected $casts = [
@@ -33,8 +37,36 @@ class Peminjaman extends Model
     ];
 
     protected $attributes = [
-        'status' => 'menunggu', // Update default value
+        'status' => 'menunggu',
     ];
+
+    // ✅ Auto generate kode peminjaman saat create
+    protected static function boot()
+    {
+        parent::boot();
+        
+        static::creating(function ($model) {
+            if (!$model->kode_peminjaman) {
+                $model->kode_peminjaman = self::generateKodePeminjaman();
+            }
+        });
+    }
+
+    // ✅ Generate kode unik (format: PMJ-YYYYMMDD-XXXXX)
+    public static function generateKodePeminjaman()
+    {
+        $date = now()->format('Ymd');
+        $random = strtoupper(Str::random(5));
+        $kode = "PMJ-{$date}-{$random}";
+        
+        // Jika sudah ada, generate ulang
+        while (self::where('kode_peminjaman', $kode)->exists()) {
+            $random = strtoupper(Str::random(5));
+            $kode = "PMJ-{$date}-{$random}";
+        }
+        
+        return $kode;
+    }
 
     // Relationships
     public function user()
@@ -56,8 +88,9 @@ class Peminjaman extends Model
     {
         return $this->hasOne(Pengembalian::class, 'peminjaman_id', 'peminjaman_id');
     }
+
     public function getRouteKeyName()
     {
-    return 'peminjaman_id';
+        return 'peminjaman_id';
     }
 }

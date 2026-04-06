@@ -11,12 +11,27 @@ use App\Http\Controllers\LogAktivitasController;
 use App\Http\Controllers\LaporanController;
 use Illuminate\Support\Facades\Route;
 
-// Redirect root
+// ============================================================
+// HOME REDIRECT - Ke halaman peminjaman guest
+// ============================================================
 Route::get('/', function () {
-    return redirect()->route('login');
+    return redirect()->route('peminjaman.guest');
 });
 
+// ============================================================
+// GUEST ROUTES (Tanpa Login)
+// ============================================================
+Route::get('/peminjaman-guest', [PeminjamanController::class, 'guestForm'])
+    ->name('peminjaman.guest')
+    ->middleware('guest');
+
+Route::post('/peminjaman-guest', [PeminjamanController::class, 'guestStore'])
+    ->name('peminjaman.guest.store')
+    ->middleware('guest');
+
+// ============================================================
 // Authentication Routes
+// ============================================================
 Route::get('/login', [AuthController::class, 'showLogin'])->name('login')->middleware('guest');
 Route::post('/login', [AuthController::class, 'login'])->name('login.post')->middleware('guest');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
@@ -34,7 +49,7 @@ Route::middleware('auth')->group(function () {
 // ALAT ROUTES
 // ============================================================
 Route::middleware('auth')->group(function () {
-    // View alat - Admin, Petugas & Peminjam bisa akses ✅ UPDATED
+    // View alat - Admin, Petugas & Peminjam bisa akses
     Route::get('/alat', [AlatController::class, 'index'])
         ->name('alat.index')
         ->middleware('role:admin,petugas,peminjam');
@@ -61,7 +76,7 @@ Route::middleware('auth')->group(function () {
 // PEMINJAMAN ROUTES
 // ============================================================
 Route::middleware('auth')->group(function () {
-    // View peminjaman - Semua role (menampilkan layout berbeda sesuai role)
+    // View peminjaman - Semua role
     Route::get('/peminjaman', [PeminjamanController::class, 'index'])
         ->name('peminjaman.index')
         ->middleware('role:admin,petugas,peminjam');
@@ -75,7 +90,7 @@ Route::middleware('auth')->group(function () {
         ->name('peminjaman.store')
         ->middleware('role:admin,peminjam');
     
-    // Update Status - Admin & Petugas (untuk reject)
+    // Update Status - Admin & Petugas
     Route::put('/peminjaman/{peminjaman}', [PeminjamanController::class, 'update'])
         ->name('peminjaman.update')
         ->middleware('role:admin,petugas');
@@ -85,7 +100,7 @@ Route::middleware('auth')->group(function () {
         ->name('peminjaman.destroy')
         ->middleware('role:admin');
     
-    // Approve/Reject peminjaman - Admin & Petugas
+    // Approve peminjaman - Admin & Petugas
     Route::patch('/peminjaman/{peminjaman}/approve', [PeminjamanController::class, 'approve'])
         ->name('peminjaman.approve')
         ->middleware('role:admin,petugas');
@@ -105,7 +120,7 @@ Route::middleware('auth')->group(function () {
         ->name('pengembalian.store')
         ->middleware('role:admin,petugas,peminjam');
     
-    // ✅ NEW: Bayar Denda - Admin only
+    // Bayar Denda - Admin only
     Route::post('/pengembalian/bayar', [PengembalianController::class, 'bayar'])
         ->name('pengembalian.bayar')
         ->middleware('role:admin');
