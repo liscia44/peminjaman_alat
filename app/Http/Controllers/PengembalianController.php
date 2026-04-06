@@ -144,15 +144,16 @@ class PengembalianController extends Controller
 
             $peminjaman->update(['status' => 'dikembalikan']);
 
-            // ✅ UPDATED: Hanya barang yang BAIK yang ditambah ke stok tersedia
+            // ✅ FIXED: Adjust stok berdasarkan kondisi barang yang dikembalikan
+            // Saat peminjaman disetujui, stok_tersedia dikurangi sebanyak jumlah peminjaman
+            // Saat pengembalian:
+            // - Barang BAIK: stok_tersedia bertambah (bisa dipinjam lagi)
+            // - Barang RUSAK: stok_tersedia tetap (tidak bisa dipinjam, dicatat sebagai rusak)
+            // - Barang HILANG: stok_tersedia tetap (tidak bisa dipinjam, dicatat sebagai hilang)
+            
+            // Total yang bisa dipinjam lagi hanya barang BAIK
             if ($jumlahBaik > 0) {
                 $alat->increment('stok_tersedia', $jumlahBaik);
-            }
-
-            // ✅ NEW: Kurangi stok tersedia untuk barang RUSAK & HILANG
-            $barangTakLayak = $jumlahRusak + $jumlahHilang;
-            if ($barangTakLayak > 0) {
-                $alat->decrement('stok_tersedia', $barangTakLayak);
             }
 
             // ✅ Update kondisi alat jika ada rusak atau hilang
@@ -202,9 +203,22 @@ class PengembalianController extends Controller
 
     public function destroy(Pengembalian $pengembalian)
     {
-        PengembalianDetail::where('pengembalian_id', $pengembalian->pengembalian_id)->delete();
-        
-        $pengembalian->delete();
+        // ✅ NEW: Kembalikan stok jika pengembalian dihapus
+        DB::transaction(function () use ($pengembalian) {
+            // Hitung barang yang dikembalikan per kondisi
+            $jumlahBaik = $pengembalian->details()->where('kondisi_alat', 'baik')->sum('jumlah');
+            
+            // Jika ada barang baik yang dikembalikan, kembalikan ke stok (karena sudah dikurangi saat store)
+            if ($jumlahBaik > 0) {
+                $pengembalian->peminjaman->alat->decrement('stok_tersedia', $jumlahBaik);
+            }
+            
+            // Hapus details
+            PengembalianDetail::where('pengembalian_id', $pengembalian->pengembalian_id)->delete();
+            
+            // Hapus pengembalian
+            $pengembalian->delete();
+        });
 
         LogAktivitas::create([
             'user_id' => Auth::id(),

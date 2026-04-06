@@ -16,9 +16,9 @@ class AlatController extends Controller
     {
         $alats = Alat::with('kategori')->get();
         
-        // ✅ NEW: Count barang kondisi per alat dari pengembalian_detail
+        // ✅ Count barang kondisi per alat dari pengembalian_detail
         $alatStats = [];
-        // ✅ NEW: Count barang yang sedang dipinjam
+        // ✅ Count barang yang sedang dipinjam (status = disetujui, belum dikembalikan)
         $alatDipinjam = [];
         
         foreach ($alats as $alat) {
@@ -35,7 +35,7 @@ class AlatController extends Controller
                 })->where('kondisi_alat', 'hilang')->sum('jumlah'),
             ];
             
-            // ✅ NEW: Hitung barang yang sedang dipinjam (status = disetujui, belum dikembalikan)
+            // ✅ Hitung barang yang sedang dipinjam (status = disetujui, belum dikembalikan)
             $alatDipinjam[$alat->alat_id] = Peminjaman::where('alat_id', $alat->alat_id)
                 ->where('status', 'disetujui')
                 ->whereDoesntHave('pengembalian')
