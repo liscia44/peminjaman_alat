@@ -10,12 +10,14 @@ class UserSeeder extends Seeder
 {
     public function run(): void
     {
-        DB::table('users')->insert([
-            'username'   => 'admin',
-            'password'   => Hash::make('admin321'),
-            'level'      => 'admin',
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
+        DB::table('users')->updateOrInsert(
+            ['username' => 'admin'],
+            [
+                'password'   => Hash::make('admin321'),
+                'level'      => 'admin',
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
     }
 }
