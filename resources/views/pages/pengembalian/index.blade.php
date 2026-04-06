@@ -16,7 +16,7 @@
             <div class="mt-3 h-px w-10 bg-rule"></div>
         </div>
 
-        @if(in_array(auth()->user()->level, ['admin', 'petugas', 'peminjam']))
+        @if(auth()->check() && in_array(auth()->user()->level, ['admin', 'petugas']))
             <button
                 onclick="openModal()"
                 class="relative overflow-hidden flex items-center gap-2 bg-espresso px-5 py-3
@@ -128,7 +128,7 @@
                     <th class="px-4 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label whitespace-nowrap">Telat</th>
                     <th class="px-4 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label whitespace-nowrap">Total Denda</th>
                     <th class="px-4 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label whitespace-nowrap">Status</th>
-                    @if(auth()->user()->level == 'admin')
+                    @if(auth()->check() && auth()->user()->level == 'admin')
                         <th class="px-4 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label whitespace-nowrap">Aksi</th>
                     @endif
                 </tr>
@@ -207,7 +207,7 @@
                         </td>
 
                         {{-- ✅ Aksi - HANYA UNTUK ADMIN --}}
-                        @if(auth()->user()->level == 'admin')
+                        @if(auth()->check() && auth()->user()->level == 'admin')
                             <td class="px-4 py-4 whitespace-nowrap">
                                 <div class="flex gap-2 items-center">
                                     {{-- BAYAR LUNAS Button --}}
@@ -290,7 +290,7 @@
                         </label>
                         <div class="relative">
                             <select name="peminjaman_id" id="peminjaman_select" required
-                                class="w-full appearance-none bg-cream border border-rule px-3 py-2.5 font-sans text-[0.8rem] text-ink outline-none focus:border-ink transition-colors duration-200 cursor-pointer">
+                                class="w-full appearance-none bg-cream border border-rule px-3 py-2.5 font-sans text-[0.8rem] text-ink outline-none focus:border-ink transition-colors duration-200">
                                 <option value="">Pilih Peminjaman</option>
                                 @foreach(\App\Models\Peminjaman::with(['user', 'alat'])->where('status', 'disetujui')->whereDoesntHave('pengembalian')->get() as $pinjam)
                                     <option value="{{ $pinjam->peminjaman_id }}"
@@ -349,7 +349,7 @@
                             Keterangan
                         </label>
                         <textarea name="keterangan" rows="2" placeholder="Catatan tambahan (opsional)"
-                            class="w-full bg-cream border border-rule px-3 py-2.5 font-sans text-[0.82rem] text-ink outline-none placeholder-ghost/60 focus:border-ink transition-colors duration-200 resize-none"></textarea>
+                            class="w-full bg-cream border border-rule px-3 py-2.5 font-sans text-[0.82rem] text-ink outline-none placeholder-ghost/60 focus:border-ink transition-colors duration-200"></textarea>
                     </div>
 
                     {{-- Breakdown Denda (Real-time Display) --}}
@@ -479,7 +479,7 @@
                 {{-- Modal Footer --}}
                 <div class="flex-shrink-0 flex gap-3 px-8 py-5 border-t border-rule bg-paper">
                     <button type="submit" id="submitBayar"
-                        class="flex-1 bg-ink text-paper font-sans text-[0.6rem] font-semibold tracking-[0.25em] uppercase py-3.5 hover:bg-espresso transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                        class="flex-1 bg-ink text-paper font-sans text-[0.6rem] font-semibold tracking-[0.25em] uppercase py-3.5 hover:bg-espresso transition-colors duration-200 disabled:opacity-50"
                         disabled>
                         ✓ Konfirmasi Pembayaran
                     </button>
