@@ -78,7 +78,6 @@ class PengembalianController extends Controller
         // ═════════════════════════════════════════════════════════════
         // HITUNG DENDA BARANG PER KONDISI
         // ═════════════════════════════════════════════════════════════
-        $totalDendaBarang = 0;
         $persenDendaRusak = $alat->persen_denda_rusak ?? 30;
 
         DB::transaction(function () use (
@@ -88,9 +87,7 @@ class PengembalianController extends Controller
             $keterlambatan,
             $tarifDendaHarian,
             $dendaKeterlambatan,
-            $totalDendaBarang,
             $persenDendaRusak,
-            &$totalDendaBarang,
             $request
         ) {
             // Buat record pengembalian utama
