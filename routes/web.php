@@ -82,11 +82,17 @@ Route::post('/api/scan-qr', [App\Http\Controllers\QrCodeController::class, 'scan
 
 // Admin routes untuk generate QR
 Route::middleware(['auth', 'role:admin'])->group(function () {
+
+    Route::get('/qr-management', [App\Http\Controllers\QrCodeController::class, 'index'])
+    ->name('admin.qr-management');
+
     Route::patch('/qr-generate/{alat}', [App\Http\Controllers\QrCodeController::class, 'generateQr'])
         ->name('qr-generate');
     
     Route::get('/qr-generate-all', [App\Http\Controllers\QrCodeController::class, 'generateAllQr'])
         ->name('qr-generate-all');
+
+    
 });
 
 // ============================================================

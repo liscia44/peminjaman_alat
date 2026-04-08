@@ -9,6 +9,12 @@ use Illuminate\Http\Request;
 
 class QrCodeController extends Controller
 {
+
+public function index()
+{
+    return view('pages.admin.qr-management');
+}
+
     // Generate QR untuk satu barang
     public function generateQr(Alat $alat)
     {

@@ -44,6 +44,9 @@
     if (!empty($admin)) {
         $navGroups[] = ['label' => 'Administrasi', 'items' => $admin];
     }
+    if ($userLevel === 'admin') {
+    $admin[] = ['route' => 'admin.qr-management', 'label' => 'QR Code', 'icon' => 'fa-qrcode', 'match' => 'qr.*'];
+}
 @endphp
 
 <aside id="sidebar" class="fixed left-0 top-[70px] bottom-0 z-30 w-60 flex-shrink-0 bg-espresso flex flex-col transition-transform duration-300 -translate-x-full md:translate-x-0">
