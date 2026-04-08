@@ -226,6 +226,64 @@
                                 @enderror
                             </div>
 
+                            {{-- Mata Pelajaran --}}
+                            <div>
+                                <label class="block font-sans text-[0.55rem] font-semibold tracking-[0.28em] uppercase text-label mb-2.5">
+                                    Mata Pelajaran <span class="text-espresso">*</span>
+                                </label>
+                                <div class="relative">
+                                    <select
+                                        name="mata_pelajaran" id="mata_pelajaran_select" required
+                                        class="w-full appearance-none bg-cream border border-rule px-3 py-2.5 font-sans text-[0.82rem] text-ink outline-none focus:border-ink transition-colors duration-200"
+                                    >
+                                        <option value="">Pilih Mata Pelajaran</option>
+                                        <option value="Matematika">Matematika</option>
+                                        <option value="Bahasa Indonesia">Bahasa Indonesia</option>
+                                        <option value="Bahasa Inggris">Bahasa Inggris</option>
+                                        <option value="Fisika">Fisika</option>
+                                        <option value="Kimia">Kimia</option>
+                                        <option value="Biologi">Biologi</option>
+                                        <option value="Sejarah">Sejarah</option>
+                                        <option value="Geografi">Geografi</option>
+                                        <option value="Ekonomi">Ekonomi</option>
+                                        <option value="Sosiologi">Sosiologi</option>
+                                        <option value="Seni">Seni</option>
+                                        <option value="Olahraga">Olahraga</option>
+                                        <option value="TIK">TIK</option>
+                                        <option value="Lainnya">Lainnya</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ghost text-[0.55rem] pointer-events-none"></i>
+                                </div>
+                                @error('mata_pelajaran')
+                                    <p class="font-sans text-[0.65rem] text-espresso mt-1.5">{{ $message }}</p>
+                                @enderror
+                            </div>
+
+                            {{-- Jam Peminjaman --}}
+                            <div>
+                                <label class="block font-sans text-[0.55rem] font-semibold tracking-[0.28em] uppercase text-label mb-2.5">
+                                    Jam Peminjaman <span class="text-espresso">*</span>
+                                </label>
+                                <div class="relative">
+                                    <select
+                                        name="jam_peminjaman" id="jam_peminjaman_select" required
+                                        class="w-full appearance-none bg-cream border border-rule px-3 py-2.5 font-sans text-[0.82rem] text-ink outline-none focus:border-ink transition-colors duration-200"
+                                    >
+                                        <option value="">Pilih Jam Pelajaran</option>
+                                        <option value="07:00 - 08:30">07:00 - 08:30 (Jam 1)</option>
+                                        <option value="08:30 - 10:00">08:30 - 10:00 (Jam 2)</option>
+                                        <option value="10:00 - 11:30">10:00 - 11:30 (Jam 3)</option>
+                                        <option value="11:30 - 13:00">11:30 - 13:00 (Jam 4)</option>
+                                        <option value="13:00 - 14:30">13:00 - 14:30 (Jam 5)</option>
+                                        <option value="14:30 - 16:00">14:30 - 16:00 (Jam 6)</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ghost text-[0.55rem] pointer-events-none"></i>
+                                </div>
+                                @error('jam_peminjaman')
+                                    <p class="font-sans text-[0.65rem] text-espresso mt-1.5">{{ $message }}</p>
+                                @enderror
+                            </div>
+
                             {{-- Jumlah --}}
                             <div class="relative">
                                 <label class="block font-sans text-[0.55rem] font-semibold tracking-[0.28em] uppercase text-label mb-2.5">

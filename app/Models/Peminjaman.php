@@ -21,6 +21,8 @@ class Peminjaman extends Model
         'alat_id',
         'jumlah',
         'kelas',
+        'mata_pelajaran',  // ← TAMBAH INI
+        'jam_peminjaman',
         'tanggal_peminjaman',
         'tanggal_kembali_rencana',
         'tujuan_peminjaman',
