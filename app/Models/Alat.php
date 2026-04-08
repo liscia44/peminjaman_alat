@@ -17,11 +17,13 @@ class Alat extends Model
     protected $fillable = [
         'kategori_id',
         'nama_alat',
+        'nomor_unit',
         'deskripsi',
         'kode_alat',
         'stok_total',
         'stok_tersedia',
         'kondisi',
+        'qr_code',  
         'lokasi',
         'harga_alat',              // ✅ NEW
         'persen_denda_rusak',      // ✅ NEW

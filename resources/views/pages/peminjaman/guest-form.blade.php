@@ -172,29 +172,70 @@
                                 @enderror
                             </div>
 
-                            {{-- Pilih Alat --}}
+                            {{-- QR Scanner Input --}}
                             <div>
                                 <label class="block font-sans text-[0.55rem] font-semibold tracking-[0.28em] uppercase text-label mb-2.5">
-                                    Alat <span class="text-espresso">*</span>
+                                    Scan QR Barang <span class="text-espresso">*</span>
                                 </label>
                                 <div class="relative">
-                                    <select
-                                        name="alat_id" id="alat_select" required
-                                        class="w-full appearance-none bg-cream border border-rule px-3 py-2.5 font-sans text-[0.82rem] text-ink outline-none focus:border-ink transition-colors duration-200"
+                                    <input
+                                        type="text" 
+                                        id="qr_scanner_input" 
+                                        placeholder="Arahkan kamera ke QR code barang"
+                                        class="peer w-full bg-transparent border-b border-rule pb-2.5 pt-1 font-sans text-[0.85rem] text-ink outline-none placeholder-ghost/60 transition-colors duration-200 focus:border-ink"
+                                        autocomplete="off"
                                     >
-                                        <option value="">Pilih Alat</option>
-                                        @foreach($alats as $alat)
-                                            <option value="{{ $alat->alat_id }}"
-                                                data-max="{{ $alat->stok_tersedia }}"
-                                                {{ old('alat_id') == $alat->alat_id ? 'selected' : '' }}>
-                                                {{ $alat->nama_alat }} (Tersedia: {{ $alat->stok_tersedia }})
-                                            </option>
-                                        @endforeach
-                                    </select>
-                                    <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ghost text-[0.55rem] pointer-events-none"></i>
+                                    <span class="absolute bottom-0 left-0 h-px w-0 bg-ink transition-all duration-300 peer-focus:w-full"></span>
+                                    <i class="fas fa-camera absolute right-3 top-1/2 -translate-y-1/2 text-ghost text-[0.8rem]"></i>
                                 </div>
-                                @error('alat_id')
-                                    <p class="font-sans text-[0.65rem] text-espresso mt-1.5">{{ $message }}</p>
+                                <p id="qr_status" class="font-sans text-[0.62rem] text-label mt-1.5"></p>
+                            </div>
+
+                            {{-- Hidden input untuk alat_id --}}
+                            <input type="hidden" name="alat_id" id="alat_id_input">
+
+                            {{-- Display Alat yang ter-scan --}}
+                            <div id="alat_terpilih" style="display: none;" class="bg-cream px-4 py-3 border border-rule rounded mb-4">
+                                <p class="font-sans text-[0.65rem] font-semibold tracking-[0.2em] uppercase text-label mb-2">
+                                    Barang Terpilih ✓
+                                </p>
+                                <div class="grid grid-cols-2 gap-3">
+                                    <div>
+                                        <p class="font-sans text-[0.55rem] text-ghost mb-0.5">Nama</p>
+                                        <p id="alat_nama" class="font-sans text-[0.8rem] font-semibold text-ink">—</p>
+                                    </div>
+                                    <div>
+                                        <p class="font-sans text-[0.55rem] text-ghost mb-0.5">Unit</p>
+                                        <p id="alat_unit" class="font-sans text-[0.8rem] font-semibold text-ink">—</p>
+                                    </div>
+                                    <div>
+                                        <p class="font-sans text-[0.55rem] text-ghost mb-0.5">Stok</p>
+                                        <p id="alat_stok" class="font-sans text-[0.8rem] font-semibold text-ink">—</p>
+                                    </div>
+                                    <div>
+                                        <p class="font-sans text-[0.55rem] text-ghost mb-0.5">Harga</p>
+                                        <p id="alat_harga" class="font-sans text-[0.8rem] font-semibold text-ink">—</p>
+                                    </div>
+                                </div>
+                                <button type="button" onclick="clearQrScan()" class="mt-3 w-full text-center border border-rule text-label px-3 py-2 font-sans text-[0.65rem] font-semibold tracking-[0.1em] uppercase hover:border-espresso hover:text-espresso transition-all">
+                                    Scan Ulang
+                                </button>
+                            </div>
+
+                            {{-- Jumlah (auto-fill ke 1) --}}
+                            <div class="relative">
+                                <label class="block font-sans text-[0.55rem] font-semibold tracking-[0.28em] uppercase text-label mb-2.5">
+                                    Jumlah <span class="text-espresso">*</span>
+                                </label>
+                                <input
+                                    type="number" id="jumlah_input" name="jumlah" min="1" required value="1"
+                                    placeholder="Jumlah unit yang dipinjam"
+                                    class="peer w-full bg-transparent border-b border-rule pb-2.5 pt-1 font-sans text-[0.85rem] text-ink outline-none placeholder-ghost/60 transition-colors duration-200 focus:border-ink"
+                                >
+                                <span class="absolute bottom-0 left-0 h-px w-0 bg-ink transition-all duration-300 peer-focus:w-full"></span>
+                                <p id="stok_info" class="font-sans text-[0.62rem] text-label mt-1.5"></p>
+                                @error('jumlah')
+                                    <p class="font-sans text-[0.65rem] text-espresso mt-1">{{ $message }}</p>
                                 @enderror
                             </div>
 
@@ -454,6 +495,9 @@
         </div>
     </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+
+
     <script>
         document.getElementById('alat_select').addEventListener('change', function() {
             const selected = this.options[this.selectedIndex];
@@ -477,6 +521,147 @@
         tanggalPeminjamanInput.addEventListener('change', function() {
             tanggalKembaliInput.min = this.value;
         });
+
+
+
+
+        const qrScannerInput = document.getElementById('qr_scanner_input');
+    const qrStatus = document.getElementById('qr_status');
+    const alatTerpilih = document.getElementById('alat_terpilih');
+    const alatIdInput = document.getElementById('alat_id_input');
+
+    // Buka camera saat input di-focus
+    qrScannerInput.addEventListener('focus', startCamera);
+
+    let video = null;
+    let canvas = null;
+    let stream = null;
+
+    function startCamera() {
+        if (video) return; // Camera sudah buka
+
+        // Buat video element
+        video = document.createElement('video');
+        video.setAttribute('id', 'qr_video');
+        video.setAttribute('style', 'display:none;');
+        document.body.appendChild(video);
+
+        // Buat canvas element
+        canvas = document.createElement('canvas');
+        canvas.setAttribute('id', 'qr_canvas');
+        canvas.setAttribute('style', 'display:none;');
+        document.body.appendChild(canvas);
+
+        // Minta akses camera
+        navigator.mediaDevices.getUserMedia({ 
+            video: { 
+                facingMode: 'environment' // Gunakan rear camera
+            } 
+        }).then(function(s) {
+            stream = s;
+            video.srcObject = stream;
+            video.play();
+
+            qrStatus.textContent = '📹 Camera aktif - arahkan ke QR code';
+            qrStatus.style.color = '#1c1917';
+
+            // Scan QR code
+            scanQrCode();
+        }).catch(function(err) {
+            qrStatus.textContent = '❌ Error: Izin camera ditolak';
+            qrStatus.style.color = '#b23d3d';
+        });
+    }
+
+    function scanQrCode() {
+        if (!video || !canvas) return;
+
+        const ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+
+        if (code) {
+            // QR terdeteksi!
+            stopCamera();
+            processQrData(code.data);
+        } else {
+            // Scan lagi
+            requestAnimationFrame(scanQrCode);
+        }
+    }
+
+    function processQrData(qrData) {
+        // Send ke backend untuk validate
+        fetch('/api/scan-qr', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+                qr_data: qrData
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Display barang yang ter-scan
+                document.getElementById('alat_nama').textContent = data.alat.nama_alat;
+                document.getElementById('alat_unit').textContent = data.alat.nomor_unit || '—';
+                document.getElementById('alat_stok').textContent = data.alat.stok_tersedia + ' unit';
+                document.getElementById('alat_harga').textContent = 'Rp ' + formatCurrency(data.alat.harga_alat);
+
+                alatIdInput.value = data.alat.alat_id;
+                alatTerpilih.style.display = 'block';
+
+                qrStatus.textContent = '✓ Barang terdeteksi!';
+                qrStatus.style.color = '#1c1917';
+
+                // Update jumlah maksimal
+                document.getElementById('jumlah_input').max = data.alat.stok_tersedia;
+                document.getElementById('stok_info').textContent = 'Maksimal: ' + data.alat.stok_tersedia + ' unit tersedia';
+
+            } else {
+                qrStatus.textContent = '❌ ' + data.message;
+                qrStatus.style.color = '#b23d3d';
+                startCamera();
+            }
+        })
+        .catch(error => {
+            qrStatus.textContent = '❌ Error scanning';
+            qrStatus.style.color = '#b23d3d';
+            startCamera();
+        });
+    }
+
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+    }
+
+    function clearQrScan() {
+        alatIdInput.value = '';
+        alatTerpilih.style.display = 'none';
+        qrStatus.textContent = '';
+        qrScannerInput.value = '';
+        stopCamera();
+        video = null;
+        canvas = null;
+    }
+
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('id-ID').format(value);
+    }
+
+    // Cleanup saat halaman ditutup
+    window.addEventListener('beforeunload', stopCamera);
     </script>
 
 </body>
