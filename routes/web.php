@@ -86,18 +86,27 @@ Route::middleware(['auth', 'role:admin'])->group(function () {
     Route::get('/qr-management', [App\Http\Controllers\QrCodeController::class, 'indexManagement'])
         ->name('qr-management');
     
-    // Generate QR satu barang (PATCH karena update)
-    Route::patch('/qr-generate/{alat}', [App\Http\Controllers\QrCodeController::class, 'generateQr'])
+    // ✅ UPDATED: Generate QR untuk satu unit
+    Route::patch('/qr-generate/{alatUnit}', [App\Http\Controllers\QrCodeController::class, 'generateQr'])
         ->name('qr-generate');
     
-    // Generate semua QR (GET, hanya redirect)
+    // ✅ NEW: Generate semua unit dari satu alat
+    Route::get('/qr-generate-by-alat/{alat}', [App\Http\Controllers\QrCodeController::class, 'generateAllQrByAlat'])
+        ->name('qr-generate-by-alat');
+    
+    // Generate semua unit dari semua alat
     Route::get('/qr-generate-all', [App\Http\Controllers\QrCodeController::class, 'generateAllQr'])
         ->name('qr-generate-all');
     
-    // ✅ ADDED: Download QR as PDF routes
-    Route::get('/qr-download/{alat}/pdf', [App\Http\Controllers\QrCodeController::class, 'downloadQrPdf'])
+    // ✅ UPDATED: Download QR satu unit
+    Route::get('/qr-download/{alatUnit}/pdf', [App\Http\Controllers\QrCodeController::class, 'downloadQrPdf'])
         ->name('qr-download-pdf');
     
+    // ✅ NEW: Download semua unit dari satu alat
+    Route::get('/qr-download-by-alat/{alat}/pdf', [App\Http\Controllers\QrCodeController::class, 'downloadAllQrByAlatPdf'])
+        ->name('qr-download-by-alat-pdf');
+    
+    // Download semua unit dari semua alat
     Route::get('/qr-download-all/pdf', [App\Http\Controllers\QrCodeController::class, 'downloadAllQrPdf'])
         ->name('qr-download-all-pdf');
 });

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Alat;
+use App\Models\AlatUnit;
 use Endroid\QrCode\QrCode;
 use Endroid\QrCode\Writer\PngWriter;
 use PDF;
@@ -13,22 +14,26 @@ class QrCodeController extends Controller
     public function indexManagement()
     {
         return view('pages.admin.qr-management', [
-            'alats' => Alat::all()
+            'alatUnits' => AlatUnit::with('alat')->get()
         ]);
     }
 
-    // Generate QR untuk satu barang
-    public function generateQr(Alat $alat)
+    // ✅ UPDATED: Generate QR untuk satu UNIT
+    public function generateQr(AlatUnit $alatUnit)
     {
         try {
-            // Data yang disimpan di QR: ID alat + nomor unit
+            $alat = $alatUnit->alat;
+            
+            // Data yang disimpan di QR: Unit-specific info
             $qrData = json_encode([
+                'alat_unit_id' => $alatUnit->id,
                 'alat_id' => $alat->alat_id,
                 'nama_alat' => $alat->nama_alat,
                 'nomor_unit' => $alat->nomor_unit,
+                'unit_number' => $alatUnit->unit_number,
             ]);
 
-            // Generate QR Code - Syntax untuk v5.x
+            // Generate QR Code
             $qrCode = new QrCode($qrData);
             $qrCode->setSize(300);
             $qrCode->setMargin(10);
@@ -38,11 +43,11 @@ class QrCodeController extends Controller
 
             // Save ke database sebagai base64
             $base64 = 'data:image/png;base64,' . base64_encode($result->getString());
-            $alat->update(['qr_code' => $base64]);
+            $alatUnit->update(['qr_code' => $base64]);
 
             return response()->json([
                 'success' => true,
-                'message' => 'QR Code berhasil digenerate',
+                'message' => "QR Code Unit {$alatUnit->unit_number} berhasil digenerate",
                 'qr_code' => $base64
             ]);
         } catch (\Exception $e) {
@@ -53,19 +58,21 @@ class QrCodeController extends Controller
         }
     }
 
-    // Generate QR untuk semua barang
-    public function generateAllQr()
+    // ✅ UPDATED: Generate QR untuk semua UNIT dari satu ALAT
+    public function generateAllQrByAlat(Alat $alat)
     {
         try {
-            $alats = Alat::all();
+            $units = $alat->units;
             $successCount = 0;
 
-            foreach ($alats as $alat) {
+            foreach ($units as $unit) {
                 try {
                     $qrData = json_encode([
+                        'alat_unit_id' => $unit->id,
                         'alat_id' => $alat->alat_id,
                         'nama_alat' => $alat->nama_alat,
                         'nomor_unit' => $alat->nomor_unit,
+                        'unit_number' => $unit->unit_number,
                     ]);
 
                     $qrCode = new QrCode($qrData);
@@ -76,30 +83,79 @@ class QrCodeController extends Controller
                     $result = $writer->write($qrCode);
 
                     $base64 = 'data:image/png;base64,' . base64_encode($result->getString());
-                    $alat->update(['qr_code' => $base64]);
+                    $unit->update(['qr_code' => $base64]);
                     
                     $successCount++;
                 } catch (\Exception $e) {
-                    \Log::error("QR generate error for {$alat->nama_alat}: " . $e->getMessage());
+                    \Log::error("QR generate error: " . $e->getMessage());
                 }
             }
 
             return redirect()->route('qr-management')
-                ->with('success', "✅ Berhasil generate {$successCount} QR Code!");
+                ->with('success', "✅ Berhasil generate {$successCount} QR Code untuk {$alat->nama_alat}!");
         } catch (\Exception $e) {
             return redirect()->route('qr-management')
                 ->with('error', 'Error: ' . $e->getMessage());
         }
     }
 
-    // ✅ ADDED: Download single QR as PDF
-    public function downloadQrPdf(Alat $alat)
+    // ✅ NEW: Generate QR untuk semua UNIT dari semua ALAT
+    public function generateAllQr()
     {
-        if (!$alat->qr_code) {
+        try {
+            $allUnits = AlatUnit::all();
+            $successCount = 0;
+
+            foreach ($allUnits as $unit) {
+                try {
+                    $alat = $unit->alat;
+                    
+                    $qrData = json_encode([
+                        'alat_unit_id' => $unit->id,
+                        'alat_id' => $alat->alat_id,
+                        'nama_alat' => $alat->nama_alat,
+                        'nomor_unit' => $alat->nomor_unit,
+                        'unit_number' => $unit->unit_number,
+                    ]);
+
+                    $qrCode = new QrCode($qrData);
+                    $qrCode->setSize(300);
+                    $qrCode->setMargin(10);
+
+                    $writer = new PngWriter();
+                    $result = $writer->write($qrCode);
+
+                    $base64 = 'data:image/png;base64,' . base64_encode($result->getString());
+                    $unit->update(['qr_code' => $base64]);
+                    
+                    $successCount++;
+                } catch (\Exception $e) {
+                    \Log::error("QR generate error: " . $e->getMessage());
+                }
+            }
+
+            return redirect()->route('qr-management')
+                ->with('success', "✅ Berhasil generate {$successCount} QR Code untuk semua unit!");
+        } catch (\Exception $e) {
+            return redirect()->route('qr-management')
+                ->with('error', 'Error: ' . $e->getMessage());
+        }
+    }
+
+    // ✅ UPDATED: Download single UNIT QR as PDF
+    public function downloadQrPdf(AlatUnit $alatUnit)
+    {
+        if (!$alatUnit->qr_code) {
             return redirect()->back()->with('error', 'QR Code belum digenerate');
         }
 
-        $html = $this->generateQrHtml($alat->qr_code, $alat->nama_alat, $alat->nomor_unit);
+        $alat = $alatUnit->alat;
+        $html = $this->generateQrHtml(
+            $alatUnit->qr_code,
+            $alat->nama_alat,
+            $alat->nomor_unit,
+            $alatUnit->unit_number
+        );
         
         $pdf = PDF::loadHTML($html)
             ->setPaper('A6', 'portrait')
@@ -110,15 +166,66 @@ class QrCodeController extends Controller
                 'margin_left' => 5,
             ]);
 
-        return $pdf->download("QR-{$alat->nama_alat}-{$alat->alat_id}.pdf");
+        return $pdf->download("QR-{$alat->nama_alat}-Unit{$alatUnit->unit_number}.pdf");
     }
 
-    // ✅ ADDED: Download all QR codes as PDF
+    // ✅ NEW: Download all UNIT QR from one ALAT as PDF
+    public function downloadAllQrByAlatPdf(Alat $alat)
+    {
+        $units = $alat->units()->whereNotNull('qr_code')->get();
+
+        if ($units->isEmpty()) {
+            return redirect()->back()->with('error', 'Tidak ada QR Code untuk alat ini');
+        }
+
+        $html = '<style>
+            * { margin: 0; padding: 0; }
+            body { font-family: Arial, sans-serif; }
+            .page-break { page-break-after: always; }
+            .qr-container {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                flex-direction: column;
+                height: 100%;
+                border: 2px dashed #000;
+                padding: 10px;
+                text-align: center;
+            }
+            .qr-container img { width: 150px; margin-bottom: 10px; }
+            .qr-container p { font-size: 12px; font-weight: bold; margin: 5px 0; }
+        </style>';
+
+        foreach ($units as $index => $unit) {
+            $html .= '<div class="qr-container">';
+            $html .= '<img src="' . $unit->qr_code . '" alt="QR Code" />';
+            $html .= '<p>' . $alat->nama_alat . '</p>';
+            $html .= '<p>Unit ' . $unit->unit_number . '</p>';
+            $html .= '</div>';
+            
+            if ($index < $units->count() - 1) {
+                $html .= '<div class="page-break"></div>';
+            }
+        }
+
+        $pdf = PDF::loadHTML($html)
+            ->setPaper('A6', 'portrait')
+            ->setOptions([
+                'margin_top' => 0,
+                'margin_right' => 0,
+                'margin_bottom' => 0,
+                'margin_left' => 0,
+            ]);
+
+        return $pdf->download("QR-{$alat->nama_alat}-All-" . date('Y-m-d') . ".pdf");
+    }
+
+    // ✅ UPDATED: Download all QR codes as PDF
     public function downloadAllQrPdf()
     {
-        $alats = Alat::whereNotNull('qr_code')->get();
+        $units = AlatUnit::whereNotNull('qr_code')->with('alat')->get();
 
-        if ($alats->isEmpty()) {
+        if ($units->isEmpty()) {
             return redirect()->back()->with('error', 'Tidak ada QR Code yang sudah digenerate');
         }
 
@@ -140,14 +247,15 @@ class QrCodeController extends Controller
             .qr-container p { font-size: 12px; font-weight: bold; margin: 5px 0; }
         </style>';
 
-        foreach ($alats as $index => $alat) {
+        foreach ($units as $index => $unit) {
+            $alat = $unit->alat;
             $html .= '<div class="qr-container">';
-            $html .= '<img src="' . $alat->qr_code . '" alt="QR Code" />';
+            $html .= '<img src="' . $unit->qr_code . '" alt="QR Code" />';
             $html .= '<p>' . $alat->nama_alat . '</p>';
-            $html .= '<p>' . ($alat->nomor_unit ?? '-') . '</p>';
+            $html .= '<p>Unit ' . $unit->unit_number . '</p>';
             $html .= '</div>';
             
-            if ($index < $alats->count() - 1) {
+            if ($index < $units->count() - 1) {
                 $html .= '<div class="page-break"></div>';
             }
         }
@@ -161,12 +269,14 @@ class QrCodeController extends Controller
                 'margin_left' => 0,
             ]);
 
-        return $pdf->download('QR-Codes-All-' . date('Y-m-d-His') . '.pdf');
+        return $pdf->download('QR-All-' . date('Y-m-d-His') . '.pdf');
     }
 
-    // ✅ ADDED: Helper method untuk generate HTML
-    private function generateQrHtml($qrBase64, $namaAlat, $nomorUnit)
+    // ✅ Helper method untuk generate HTML
+    private function generateQrHtml($qrBase64, $namaAlat, $nomorUnit, $unitNumber = null)
     {
+        $unitText = $unitNumber ? "Unit {$unitNumber}" : $nomorUnit;
+        
         return '
             <html>
             <head>
@@ -198,7 +308,7 @@ class QrCodeController extends Controller
                 <div class="sticker">
                     <img src="' . $qrBase64 . '" alt="QR Code" />
                     <p>' . $namaAlat . '</p>
-                    <p>' . ($nomorUnit ?? '-') . '</p>
+                    <p>' . $unitText . '</p>
                 </div>
             </body>
             </html>
@@ -214,23 +324,26 @@ class QrCodeController extends Controller
 
         $data = json_decode($validated['qr_data'], true);
 
-        $alat = Alat::find($data['alat_id']);
-
-        if (!$alat) {
+        $alatUnit = AlatUnit::find($data['alat_unit_id'] ?? null);
+        
+        if (!$alatUnit) {
             return response()->json([
                 'success' => false,
-                'message' => 'Alat tidak ditemukan'
+                'message' => 'Unit alat tidak ditemukan'
             ], 404);
         }
+
+        $alat = $alatUnit->alat;
 
         return response()->json([
             'success' => true,
             'alat' => [
+                'alat_unit_id' => $alatUnit->id,
                 'alat_id' => $alat->alat_id,
                 'nama_alat' => $alat->nama_alat,
                 'nomor_unit' => $alat->nomor_unit,
-                'stok_tersedia' => $alat->stok_tersedia,
-                'harga_alat' => $alat->harga_alat,
+                'unit_number' => $alatUnit->unit_number,
+                'status' => $alatUnit->status,
             ]
         ]);
     }

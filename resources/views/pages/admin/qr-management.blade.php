@@ -27,7 +27,7 @@
         </div>
     @endif
 
-        {{-- Generate All Button --}}
+    {{-- Generate All Button --}}
     <div class="mb-8 flex gap-3">
         <a href="{{ route('qr-generate-all') }}"
             class="relative overflow-hidden inline-flex items-center gap-2 bg-espresso px-5 py-3
@@ -38,7 +38,6 @@
             <span>Generate Semua QR Code</span>
         </a>
 
-        {{-- ✅ ADDED: Download All PDF --}}
         <a href="{{ route('qr-download-all-pdf') }}"
             class="relative overflow-hidden inline-flex items-center gap-2 bg-blue-600 px-5 py-3
                    font-sans text-[0.62rem] font-semibold tracking-[0.2em] uppercase text-white
@@ -49,7 +48,7 @@
         </a>
     </div>
 
-    {{-- Daftar Barang & QR --}}
+    {{-- Daftar Unit QR --}}
     <div class="bg-paper border border-rule">
         <table class="w-full">
             <thead>
@@ -61,49 +60,49 @@
                 </tr>
             </thead>
             <tbody class="divide-y divide-rule" id="tableBody">
-                @foreach($alats as $alat)
-                    <tr class="hover:bg-cream/40" id="row-{{ $alat->alat_id }}">
+                @foreach($alatUnits as $unit)
+                    <tr class="hover:bg-cream/40" id="row-{{ $unit->id }}">
                         <td class="px-4 py-4 font-sans text-[0.78rem] font-medium text-ink">
-                            {{ $alat->nama_alat }}
+                            {{ $unit->alat->nama_alat }}
                         </td>
                         <td class="px-4 py-4 font-sans text-[0.78rem] text-label">
-                            {{ $alat->nomor_unit ?? '—' }}
+                            Unit {{ $unit->unit_number }}
                         </td>
                         <td class="px-4 py-4 text-center">
-                            <img id="qr-{{ $alat->alat_id }}" 
-                                 src="{{ $alat->qr_code ?? '' }}" 
+                            <img id="qr-{{ $unit->id }}" 
+                                 src="{{ $unit->qr_code ?? '' }}" 
                                  alt="QR" 
-                                 style="width: 80px; height: 80px; {{ !$alat->qr_code ? 'display: none;' : '' }}">
-                            <span id="qr-empty-{{ $alat->alat_id }}" 
+                                 style="width: 80px; height: 80px; {{ !$unit->qr_code ? 'display: none;' : '' }}">
+                            <span id="qr-empty-{{ $unit->id }}" 
                                   class="font-sans text-[0.65rem] text-ghost"
-                                  style="{{ $alat->qr_code ? 'display: none;' : '' }}">
+                                  style="{{ $unit->qr_code ? 'display: none;' : '' }}">
                                 Belum ada
                             </span>
                         </td>
-                                                <td class="px-4 py-4">
+                        <td class="px-4 py-4">
                             <div class="flex gap-2 flex-wrap">
-                                {{-- Generate QR dengan AJAX --}}
-                                <button onclick="generateQr({{ $alat->alat_id }})"
-                                    id="btn-generate-{{ $alat->alat_id }}"
+                                {{-- Generate QR --}}
+                                <button onclick="generateQr({{ $unit->id }})"
+                                    id="btn-generate-{{ $unit->id }}"
                                     class="px-3 py-2 bg-espresso text-paper border border-espresso font-sans text-[0.55rem] font-semibold tracking-[0.1em] uppercase hover:bg-ink transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                     title="Generate QR Code">
                                     <i class="fas fa-sync text-xs"></i> Generate
                                 </button>
 
                                 {{-- Print --}}
-                                <button onclick="printQr('{{ $alat->qr_code ?? '' }}', '{{ $alat->nama_alat }}', '{{ $alat->nomor_unit ?? '' }}')"
-                                    id="btn-print-{{ $alat->alat_id }}"
+                                <button onclick="printQr('{{ $unit->qr_code ?? '' }}', '{{ $unit->alat->nama_alat }}', 'Unit {{ $unit->unit_number }}')"
+                                    id="btn-print-{{ $unit->id }}"
                                     class="px-3 py-2 border border-rule text-label font-sans text-[0.55rem] font-semibold tracking-[0.1em] uppercase hover:border-espresso hover:text-espresso transition-all"
-                                    style="{{ !$alat->qr_code ? 'display: none;' : '' }}"
+                                    style="{{ !$unit->qr_code ? 'display: none;' : '' }}"
                                     title="Print QR Code">
                                     <i class="fas fa-print text-xs"></i> Print
                                 </button>
 
-                                {{-- ✅ ADDED: Download PDF --}}
-                                <a href="{{ route('qr-download-pdf', $alat->alat_id) }}"
-                                    id="btn-download-{{ $alat->alat_id }}"
+                                {{-- Download PDF --}}
+                                <a href="{{ route('qr-download-pdf', $unit->id) }}"
+                                    id="btn-download-{{ $unit->id }}"
                                     class="px-3 py-2 border border-blue-400 text-blue-600 font-sans text-[0.55rem] font-semibold tracking-[0.1em] uppercase hover:bg-blue-50 transition-all"
-                                    style="{{ !$alat->qr_code ? 'display: none;' : '' }}"
+                                    style="{{ !$unit->qr_code ? 'display: none;' : '' }}"
                                     title="Download as PDF">
                                     <i class="fas fa-download text-xs"></i> PDF
                                 </a>
@@ -115,13 +114,13 @@
         </table>
     </div>
 
-        <script>
-        function generateQr(alatId) {
-            const btn = document.getElementById(`btn-generate-${alatId}`);
+    <script>
+        function generateQr(unitId) {
+            const btn = document.getElementById(`btn-generate-${unitId}`);
             btn.disabled = true;
             btn.innerHTML = '<i class="fas fa-spinner fa-spin text-xs"></i> Loading...';
 
-            fetch(`{{ url('/qr-generate') }}/${alatId}`, {
+            fetch(`{{ url('/qr-generate') }}/${unitId}`, {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
@@ -131,17 +130,17 @@
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
-                    // Update QR image
-                    const img = document.getElementById(`qr-${alatId}`);
-                    const empty = document.getElementById(`qr-empty-${alatId}`);
-                    const printBtn = document.getElementById(`btn-print-${alatId}`);
+                    const img = document.getElementById(`qr-${unitId}`);
+                    const empty = document.getElementById(`qr-empty-${unitId}`);
+                    const printBtn = document.getElementById(`btn-print-${unitId}`);
+                    const downloadBtn = document.getElementById(`btn-download-${unitId}`);
 
                     img.src = data.qr_code;
                     img.style.display = 'block';
                     empty.style.display = 'none';
-                    printBtn.style.display = 'block';
+                    printBtn.style.display = 'inline-block';
+                    if (downloadBtn) downloadBtn.style.display = 'inline-block';
 
-                    // Show success message
                     showAlert('success', data.message);
                 } else {
                     showAlert('error', data.message);
@@ -149,7 +148,7 @@
             })
             .catch(error => {
                 console.error('Error:', error);
-                showAlert('error', 'Terjadi kesalahan saat generate QR');
+                showAlert('error', 'Terjadi kesalahan');
             })
             .finally(() => {
                 btn.disabled = false;
@@ -157,7 +156,7 @@
             });
         }
 
-        function printQr(qrBase64, namaAlat, nomorUnit) {
+        function printQr(qrBase64, namaAlat, unitText) {
             if (!qrBase64) {
                 alert('QR Code belum tersedia');
                 return;
@@ -191,7 +190,7 @@
                         <div class="sticker">
                             <img src="${qrBase64}" alt="QR Code" />
                             <p>${namaAlat}</p>
-                            <p>${nomorUnit}</p>
+                            <p>${unitText}</p>
                         </div>
                     </body>
                 </html>
