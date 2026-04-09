@@ -9,7 +9,7 @@ use Illuminate\Http\Request;
 
 class QrCodeController extends Controller
 {
-    public function index()
+    public function indexManagement()
 {
     return view('pages.admin.qr-management', [
         'alats' => \App\Models\Alat::all()
