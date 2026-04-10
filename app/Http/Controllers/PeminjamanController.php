@@ -17,17 +17,17 @@ class PeminjamanController extends Controller
         return view('pages.peminjaman.guest-form', compact('alats'));
     }
 
-  public function guestStore(Request $request)
+ public function guestStore(Request $request)
 {
     // ✅ Updated validation dengan jam_kembali
     $validated = $request->validate([
         'nama_peminjam_guest' => 'required|string|max:255',
-        'alat_id' => 'required|exists:alat,alat_id',  // ✅ Dari QR scan
+        'alat_id' => 'required|exists:alat,alat_id',
         'jumlah' => 'required|integer|min:1',
         'kelas' => 'required|string|max:50',
         'mata_pelajaran' => 'required|string|max:100',  
         'jam_peminjaman' => 'required|string|max:50',
-        'jam_kembali' => 'required|string|max:50',      // ✅ BARU
+        'jam_kembali' => 'required|string|max:50',
         'tujuan_peminjaman' => 'nullable|string',
     ]);
 
@@ -41,26 +41,40 @@ class PeminjamanController extends Controller
         return back()->withErrors(['jumlah' => 'Stok tidak cukup. Maksimal: ' . $alat->stok_tersedia . ' unit']);
     }
 
-    // ✅ Set tanggal = hari ini (kembali juga hari yang sama, berdasarkan jam)
-    $tanggalHariIni = now()->toDateString();
+    // ✅ AUTO ACCEPT - langsung disetujui saat submit
+    DB::transaction(function () use ($validated, $alat) {
+        $tanggalHariIni = now()->toDateString();
 
-    $peminjaman = Peminjaman::create([
-        'user_id' => null,
-        'alat_id' => $validated['alat_id'],
-        'nama_peminjam_guest' => $validated['nama_peminjam_guest'],
-        'jumlah' => $validated['jumlah'],
-        'tanggal_peminjaman' => $tanggalHariIni,
-        'tanggal_kembali_rencana' => $tanggalHariIni,  // ✅ Sama dengan tanggal peminjaman
-        'tujuan_peminjaman' => $validated['tujuan_peminjaman'] ?? null,
-        'kelas' => $validated['kelas'],
-        'mata_pelajaran' => $validated['mata_pelajaran'],  
-        'jam_peminjaman' => $validated['jam_peminjaman'],
-        'status' => 'menunggu',
-        'disetujui_oleh' => null,
-    ]);
+        $peminjaman = Peminjaman::create([
+            'user_id' => null,
+            'alat_id' => $validated['alat_id'],
+            'nama_peminjam_guest' => $validated['nama_peminjam_guest'],
+            'jumlah' => $validated['jumlah'],
+            'tanggal_peminjaman' => $tanggalHariIni,
+            'tanggal_kembali_rencana' => $tanggalHariIni,
+            'tujuan_peminjaman' => $validated['tujuan_peminjaman'] ?? null,
+            'kelas' => $validated['kelas'],
+            'mata_pelajaran' => $validated['mata_pelajaran'],  
+            'jam_peminjaman' => $validated['jam_peminjaman'],
+            'status' => 'disetujui',  // ✅ AUTO ACCEPT - bukan 'menunggu'
+            'disetujui_oleh' => 1,    // ✅ System auto-approve (user_id 1 = system/admin)
+            'tanggal_disetujui' => now(),
+        ]);
+
+        // ✅ KURANGI STOK LANGSUNG
+        $alat->decrement('stok_tersedia', $validated['jumlah']);
+
+        // ✅ LOG AKTIVITAS
+        LogAktivitas::create([
+            'user_id' => 1,  // System
+            'aktivitas' => 'Guest auto-approve peminjaman - ' . $alat->nama_alat,
+            'modul' => 'Peminjaman',
+            'timestamp' => now(),
+        ]);
+    });
 
     return redirect()->route('peminjaman.guest')
-        ->with('success', "Peminjaman berhasil diajukan! Kode peminjaman Anda: <strong>{$peminjaman->kode_peminjaman}</strong>")
+        ->with('success', "✅ Peminjaman Disetujui! Kode: <strong>{$peminjaman->kode_peminjaman}</strong>")
         ->with('kode_peminjaman', $peminjaman->kode_peminjaman);
 }
 

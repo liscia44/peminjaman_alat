@@ -33,67 +33,48 @@
     @endphp
 
     {{-- ══ SUMMARY CARDS ══ --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
 
-        <div class="bg-paper border border-rule p-5 group hover:border-espresso/30 transition-colors duration-200">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label mb-2">Menunggu Persetujuan</p>
-                    <p class="font-serif text-[1.9rem] font-normal leading-none text-ink">{{ $peminjamanMenunggu->count() }}</p>
-                </div>
-                <div class="w-10 h-10 bg-dim flex items-center justify-center flex-shrink-0">
-                    <i class="fas fa-clock text-xs text-paper"></i>
-                </div>
+    <div class="bg-paper border border-rule p-5 group hover:border-espresso/30 transition-colors duration-200">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <p class="font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label mb-2">Sedang Dipinjam</p>
+                <p class="font-serif text-[1.9rem] font-normal leading-none text-ink">{{ $peminjamanAktif->count() }}</p>
             </div>
-            <div class="mt-4 h-px w-0 bg-espresso/20 group-hover:w-full transition-all duration-500"></div>
-        </div>
-
-        <div class="bg-paper border border-rule p-5 group hover:border-espresso/30 transition-colors duration-200">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label mb-2">Sedang Dipinjam</p>
-                    <p class="font-serif text-[1.9rem] font-normal leading-none text-ink">{{ $peminjamanAktif->count() }}</p>
-                </div>
-                <div class="w-10 h-10 bg-espresso flex items-center justify-center flex-shrink-0">
-                    <i class="fas fa-check-circle text-xs text-paper"></i>
-                </div>
+            <div class="w-10 h-10 bg-espresso flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-check-circle text-xs text-paper"></i>
             </div>
-            <div class="mt-4 h-px w-0 bg-espresso/20 group-hover:w-full transition-all duration-500"></div>
         </div>
-
-        <div class="bg-paper border border-rule p-5 group hover:border-espresso/30 transition-colors duration-200">
-            <div class="flex items-start justify-between gap-3">
-                <div>
-                    <p class="font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label mb-2">Sudah Dikembalikan</p>
-                    <p class="font-serif text-[1.9rem] font-normal leading-none text-ink">{{ $peminjamanSelesai->count() }}</p>
-                </div>
-                <div class="w-10 h-10 bg-ghost flex items-center justify-center flex-shrink-0">
-                    <i class="fas fa-undo-alt text-xs text-paper"></i>
-                </div>
-            </div>
-            <div class="mt-4 h-px w-0 bg-espresso/20 group-hover:w-full transition-all duration-500"></div>
-        </div>
-
+        <div class="mt-4 h-px w-0 bg-espresso/20 group-hover:w-full transition-all duration-500"></div>
     </div>
+
+    <div class="bg-paper border border-rule p-5 group hover:border-espresso/30 transition-colors duration-200">
+        <div class="flex items-start justify-between gap-3">
+            <div>
+                <p class="font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label mb-2">Sudah Dikembalikan</p>
+                <p class="font-serif text-[1.9rem] font-normal leading-none text-ink">{{ $peminjamanSelesai->count() }}</p>
+            </div>
+            <div class="w-10 h-10 bg-ghost flex items-center justify-center flex-shrink-0">
+                <i class="fas fa-undo-alt text-xs text-paper"></i>
+            </div>
+        </div>
+        <div class="mt-4 h-px w-0 bg-espresso/20 group-hover:w-full transition-all duration-500"></div>
+    </div>
+
+</div>
 
     {{-- ══ TABS ══ --}}
     <div class="border-b border-rule mb-6">
         <div class="flex gap-0">
 
-            <button onclick="showTab('menunggu')" id="btn-menunggu"
-                class="group relative px-6 py-3.5 font-sans text-[0.62rem] font-semibold tracking-[0.2em] uppercase flex items-center gap-2 transition-colors duration-150 border-b-2 border-espresso text-ink">
-                <i class="fas fa-hourglass-half text-xs"></i>
-                <span>Menunggu</span>
-                <span class="bg-espresso text-paper font-sans text-[0.5rem] font-bold px-1.5 py-0.5 tracking-wide">
-                    {{ $peminjamanMenunggu->count() }}
-                </span>
-            </button>
+            {{-- ✅ SEMBUNYIKAN TAB MENUNGGU --}}
+            {{-- <button onclick="showTab('menunggu')" ... --}}
 
             <button onclick="showTab('aktif')" id="btn-aktif"
-                class="group relative px-6 py-3.5 font-sans text-[0.62rem] font-semibold tracking-[0.2em] uppercase flex items-center gap-2 transition-colors duration-150 border-b-2 border-transparent text-label hover:text-ink">
+                class="group relative px-6 py-3.5 font-sans text-[0.62rem] font-semibold tracking-[0.2em] uppercase flex items-center gap-2 transition-colors duration-150 border-b-2 border-espresso text-ink">
                 <i class="fas fa-clipboard-check text-xs"></i>
-                <span>Dipinjam</span>
-                <span class="bg-rule text-label font-sans text-[0.5rem] font-bold px-1.5 py-0.5 tracking-wide">
+                <span>Sedang Dipinjam</span>
+                <span class="bg-espresso text-paper font-sans text-[0.5rem] font-bold px-1.5 py-0.5 tracking-wide">
                     {{ $peminjamanAktif->count() }}
                 </span>
             </button>
@@ -102,6 +83,9 @@
                 class="group relative px-6 py-3.5 font-sans text-[0.62rem] font-semibold tracking-[0.2em] uppercase flex items-center gap-2 transition-colors duration-150 border-b-2 border-transparent text-label hover:text-ink">
                 <i class="fas fa-check-double text-xs"></i>
                 <span>Selesai</span>
+                <span class="bg-rule text-label font-sans text-[0.5rem] font-bold px-1.5 py-0.5 tracking-wide">
+                    {{ $peminjamanSelesai->count() }}
+                </span>
             </button>
 
         </div>
@@ -367,35 +351,38 @@
 
     <script>
         function showTab(tab) {
-            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
 
-            // Reset semua tab button
-            ['menunggu', 'aktif', 'selesai'].forEach(t => {
-                const btn = document.getElementById('btn-' + t);
-                btn.classList.remove('border-espresso', 'text-ink');
-                btn.classList.add('border-transparent', 'text-label');
+    // Reset semua tab button
+    ['aktif', 'selesai'].forEach(t => {
+        const btn = document.getElementById('btn-' + t);
+        btn.classList.remove('border-espresso', 'text-ink');
+        btn.classList.add('border-transparent', 'text-label');
 
-                // Reset badge warna
-                const badge = btn.querySelector('span:last-child');
-                if (badge) {
-                    badge.classList.remove('bg-espresso', 'text-paper');
-                    badge.classList.add('bg-rule', 'text-label');
-                }
-            });
-
-            // Aktifkan tab yang dipilih
-            document.getElementById('tab-' + tab).classList.remove('hidden');
-            const activeBtn = document.getElementById('btn-' + tab);
-            activeBtn.classList.remove('border-transparent', 'text-label');
-            activeBtn.classList.add('border-espresso', 'text-ink');
-
-            // Aktifkan badge warna
-            const activeBadge = activeBtn.querySelector('span:last-child');
-            if (activeBadge) {
-                activeBadge.classList.remove('bg-rule', 'text-label');
-                activeBadge.classList.add('bg-espresso', 'text-paper');
-            }
+        const badge = btn.querySelector('span:last-child');
+        if (badge) {
+            badge.classList.remove('bg-espresso', 'text-paper');
+            badge.classList.add('bg-rule', 'text-label');
         }
+    });
+
+    // Aktifkan tab yang dipilih
+    document.getElementById('tab-' + tab).classList.remove('hidden');
+    const activeBtn = document.getElementById('btn-' + tab);
+    activeBtn.classList.remove('border-transparent', 'text-label');
+    activeBtn.classList.add('border-espresso', 'text-ink');
+
+    const activeBadge = activeBtn.querySelector('span:last-child');
+    if (activeBadge) {
+        activeBadge.classList.remove('bg-rule', 'text-label');
+        activeBadge.classList.add('bg-espresso', 'text-paper');
+    }
+}
+
+// Default open tab 'aktif'
+document.addEventListener('DOMContentLoaded', () => {
+    showTab('aktif');
+});
 
         function approvePeminjaman(id) {
             if (confirm('Setujui peminjaman ini?')) {
