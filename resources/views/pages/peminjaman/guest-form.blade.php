@@ -870,18 +870,47 @@
     console.log('✅ QR Scanner Script initialized (Multi-Item Mode)');
 </script>
 
-{{-- ✅ PWA - SERVICE WORKER REGISTRATION --}}
+{{-- ✅ PWA - SERVICE WORKER REGISTRATION dengan improved error handling --}}
 <script>
 if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js')
-            .then(reg => {
-                console.log('✅ Service Worker registered');
-                setInterval(() => {
-                    reg.update();
-                }, 60000);
-            })
-            .catch(err => console.log('❌ SW registration failed:', err));
+        navigator.serviceWorker.register('/sw.js', {
+            scope: '/'
+        })
+        .then(reg => {
+            console.log('✅ Service Worker registered:', reg);
+            
+            // Check for updates setiap menit
+            setInterval(() => {
+                reg.update();
+            }, 60000);
+
+            // Listen untuk updates
+            reg.addEventListener('updatefound', () => {
+                const newWorker = reg.installing;
+                newWorker.addEventListener('statechange', () => {
+                    if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                        console.log('✅ New Service Worker installed - update available');
+                        if (confirm('Update aplikasi tersedia! Reload sekarang?')) {
+                            newWorker.postMessage({ type: 'SKIP_WAITING' });
+                            window.location.reload();
+                        }
+                    }
+                });
+            });
+        })
+        .catch(err => {
+            console.error('❌ Service Worker registration failed:', err);
+        });
+
+        // Listen untuk controller change
+        let refreshing = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!refreshing) {
+                window.location.reload();
+                refreshing = true;
+            }
+        });
     });
 }
 
@@ -923,7 +952,7 @@ function showInstallPrompt() {
         installBtn.addEventListener('click', async () => {
             deferredPrompt.prompt();
             const { outcome } = await deferredPrompt.userChoice;
-            console.log(`User response: ${outcome}`);
+            console.log(`User response to install: ${outcome}`);
             deferredPrompt = null;
             installBtn.style.display = 'none';
         });
@@ -931,9 +960,10 @@ function showInstallPrompt() {
 }
 
 window.addEventListener('appinstalled', () => {
-    console.log('✅ PWA installed!');
+    console.log('✅ PWA installed successfully!');
     const installBtn = document.getElementById('installButton');
     if (installBtn) installBtn.style.display = 'none';
+    deferredPrompt = null;
 });
 </script>
 
