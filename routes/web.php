@@ -168,6 +168,9 @@ Route::middleware('auth')->group(function () {
     Route::delete('/pengembalian/{pengembalian}', [PengembalianController::class, 'destroy'])
         ->name('pengembalian.destroy')
         ->middleware('role:admin');
+
+    Route::post('/quick-process', [PengembalianController::class, 'quickProcess']);
+    Route::post('/api/get-from-qr', [PengembalianController::class, 'getFromQr']);
 });
 
 // ============================================================

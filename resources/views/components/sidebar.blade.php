@@ -28,6 +28,11 @@
     if (in_array($userLevel, ['admin', 'petugas', 'peminjam'])) {
         $transaksi[] = ['route' => 'peminjaman.index', 'label' => 'Peminjaman', 'icon' => 'fa-clipboard-list', 'match' => 'peminjaman.*'];
         $transaksi[] = ['route' => 'pengembalian.index', 'label' => 'Pengembalian', 'icon' => 'fa-rotate-left', 'match' => 'pengembalian.*'];
+
+        // ✅ NEW: Quick Return (hanya untuk petugas & admin)
+        if (in_array($userLevel, ['admin', 'petugas'])) {
+            $transaksi[] = ['route' => 'pengembalian.quick', 'label' => 'Pengembalian Cepat', 'icon' => 'fa-bolt', 'match' => 'pengembalian.quick'];
+        }
     }
     if (!empty($transaksi)) {
         $navGroups[] = ['label' => 'Transaksi', 'items' => $transaksi];

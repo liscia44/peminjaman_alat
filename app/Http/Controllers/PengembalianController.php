@@ -183,6 +183,136 @@ class PengembalianController extends Controller
         return redirect()->route('pengembalian.index')->with('success', 'Denda berhasil dibayarkan!');
     }
 
+
+    // ✅ API: Proses pengembalian cepat via QR
+public function quickProcess(Request $request)
+{
+    $validated = $request->validate([
+        'peminjaman_id' => 'required|exists:peminjaman,peminjaman_id',
+        'kondisi' => 'required|in:baik,rusak,hilang',
+        'persen_denda_custom' => 'nullable|numeric|min:0|max:100', // ✅ CUSTOM %
+        'tanggal_kembali' => 'required|date',
+        'keterangan' => 'nullable|string',
+    ]);
+
+    $peminjaman = Peminjaman::findOrFail($validated['peminjaman_id']);
+    $alat = $peminjaman->alat;
+
+    $persenDenda = $validated['persen_denda_custom'] ?? 0;
+    
+    // Jika baik, persentase = 0
+    if ($validated['kondisi'] === 'baik') {
+        $persenDenda = 0;
+    }
+    // Jika rusak, gunakan custom atau default
+    elseif ($validated['kondisi'] === 'rusak') {
+        $persenDenda = $validated['persen_denda_custom'] ?? ($alat->persen_denda_rusak ?? 30);
+    }
+    // Jika hilang, selalu 100%
+    elseif ($validated['kondisi'] === 'hilang') {
+        $persenDenda = 100;
+    }
+
+    // Hitung denda
+    $dendaDetail = 0;
+    if ($validated['kondisi'] === 'rusak') {
+        $dendaDetail = ($alat->harga_alat * ($persenDenda / 100)) * $peminjaman->jumlah;
+    } elseif ($validated['kondisi'] === 'hilang') {
+        $dendaDetail = $alat->harga_alat * $peminjaman->jumlah;
+    }
+
+    DB::transaction(function () use (
+        $validated,
+        $peminjaman,
+        $alat,
+        $persenDenda,
+        $dendaDetail
+    ) {
+        $pengembalian = Pengembalian::create([
+            'peminjaman_id' => $validated['peminjaman_id'],
+            'tanggal_kembali_aktual' => $validated['tanggal_kembali'],
+            'total_denda' => $dendaDetail,
+            'status_denda' => $dendaDetail > 0 ? 'belum_lunas' : 'lunas',
+            'keterangan' => $validated['keterangan'],
+        ]);
+
+        PengembalianDetail::create([
+            'pengembalian_id' => $pengembalian->pengembalian_id,
+            'kondisi_alat' => $validated['kondisi'],
+            'jumlah' => $peminjaman->jumlah,
+            'harga_alat' => $alat->harga_alat,
+            'persen_denda' => $persenDenda,
+            'denda_barang' => $dendaDetail,
+        ]);
+
+        $peminjaman->update(['status' => 'dikembalikan']);
+
+        // ✅ Stock management
+        if ($validated['kondisi'] === 'baik') {
+            $alat->increment('stok_tersedia', $peminjaman->jumlah);
+        } elseif (in_array($validated['kondisi'], ['rusak', 'hilang'])) {
+            $alat->update(['kondisi' => 'rusak']);
+        }
+    });
+
+    LogAktivitas::create([
+        'user_id' => Auth::id(),
+        'aktivitas' => 'Quick Return - ' . $validated['kondisi'],
+        'modul' => 'Pengembalian',
+        'timestamp' => now(),
+    ]);
+
+    return response()->json([
+        'success' => true,
+        'message' => 'Pengembalian berhasil diproses!',
+        'denda' => $dendaDetail,
+    ]);
+}
+
+// ✅ API: Get peminjaman + detail harga dari QR scan
+public function getFromQr(Request $request)
+{
+    $validated = $request->validate([
+        'qr_data' => 'required|json'
+    ]);
+
+    $data = json_decode($validated['qr_data'], true);
+    $alatUnit = \App\Models\AlatUnit::find($data['alat_unit_id'] ?? null);
+
+    if (!$alatUnit) {
+        return response()->json(['success' => false, 'message' => 'Unit tidak ditemukan'], 404);
+    }
+
+    $alat = $alatUnit->alat;
+
+    // Cari peminjaman yang pending untuk alat ini
+    $peminjaman = Peminjaman::where('alat_id', $alat->alat_id)
+        ->where('status', 'disetujui')
+        ->whereDoesntHave('pengembalian')
+        ->first();
+
+    if (!$peminjaman) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Tidak ada peminjaman pending untuk alat ini'
+        ], 404);
+    }
+
+    return response()->json([
+        'success' => true,
+        'alat' => [
+            'peminjaman_id' => $peminjaman->peminjaman_id,
+            'nama_alat' => $alat->nama_alat,
+            'nama_peminjam' => $peminjaman->getNamaPeminjam(),
+            'jumlah' => $peminjaman->jumlah,
+            'harga_alat' => (float) $alat->harga_alat,
+            'persen_default_rusak' => (int) ($alat->persen_denda_rusak ?? 30),
+        ]
+    ]);
+}
+
+
+
     public function destroy(Pengembalian $pengembalian)
     {
         // ✅ NEW: Kembalikan stok jika pengembalian dihapus
