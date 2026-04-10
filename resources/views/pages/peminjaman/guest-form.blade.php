@@ -850,7 +850,6 @@
 
 </script>
 
-
 {{-- ✅ PWA - SERVICE WORKER REGISTRATION --}}
 <script>
 if ('serviceWorker' in navigator) {
@@ -868,67 +867,46 @@ if ('serviceWorker' in navigator) {
 
 // ✅ INSTALL PROMPT HANDLER
 let deferredPrompt;
-let installBtn = null;
-
-function createInstallButton() {
-  if (installBtn) return;
-  
-  installBtn = document.createElement('button');
-  installBtn.id = 'installButton';
-  
-  // ✅ ICON ONLY - KECIL & SIMPLE
-  installBtn.innerHTML = '<i class="fas fa-download"></i>';
-  installBtn.className = 'text-paper hover:text-espresso transition-colors duration-200';
-  installBtn.title = 'Install App';
-  installBtn.style.cssText = `
-    background: none;
-    border: none;
-    font-size: 18px;
-    cursor: pointer;
-    padding: 0;
-    margin-right: 16px;
-  `;
-  
-  // Append ke navbar, sebelah LOGIN ADMIN button
-  const navButtons = document.querySelector('nav .flex.items-center.justify-between');
-  if (navButtons) {
-    const loginBtn = navButtons.querySelector('a');
-    if (loginBtn) {
-      loginBtn.parentElement.insertBefore(installBtn, loginBtn);
-    }
-  }
-}
-
 window.addEventListener('beforeinstallprompt', (e) => {
   console.log('✅ beforeinstallprompt event fired');
   e.preventDefault();
   deferredPrompt = e;
-  
-  createInstallButton();
-  if (installBtn) {
-    installBtn.style.display = 'inline-block';
-    
-    installBtn.onclick = async () => {
-      if (deferredPrompt) {
-        deferredPrompt.prompt();
-        const { outcome } = await deferredPrompt.userChoice;
-        console.log(`User response: ${outcome}`);
-        deferredPrompt = null;
-        installBtn.style.display = 'none';
-      }
-    };
-  }
+  showInstallPrompt();
 });
 
-// ✅ Fallback: buat button di load juga (buat testing)
-window.addEventListener('load', () => {
-  console.log('📱 beforeinstallprompt fired?', !!deferredPrompt);
-  // Uncomment line di bawah untuk force show button di development:
-  // if (!deferredPrompt) createInstallButton();
-});
+function showInstallPrompt() {
+  if (!deferredPrompt) return;
+  
+  let installBtn = document.getElementById('installButton');
+  if (!installBtn) {
+    installBtn = document.createElement('button');
+    installBtn.id = 'installButton';
+    installBtn.className = 'px-4 py-2 bg-espresso text-paper font-semibold rounded hover:bg-ink transition';
+    installBtn.textContent = '⬇️ Install App';
+    installBtn.style.display = 'none';
+    
+    const navbar = document.querySelector('nav');
+    if (navbar) {
+      navbar.appendChild(installBtn);
+    }
+  }
+  
+  if (deferredPrompt && installBtn) {
+    installBtn.style.display = 'inline-block';
+    
+    installBtn.addEventListener('click', async () => {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User response: ${outcome}`);
+      deferredPrompt = null;
+      installBtn.style.display = 'none';
+    });
+  }
+}
 
 window.addEventListener('appinstalled', () => {
   console.log('✅ PWA was installed!');
+  const installBtn = document.getElementById('installButton');
   if (installBtn) installBtn.style.display = 'none';
 });
 </script>
