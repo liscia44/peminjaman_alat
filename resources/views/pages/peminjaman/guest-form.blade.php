@@ -374,34 +374,53 @@
                             <input type="hidden" name="jumlah" value="1">
                             <input type="hidden" name="tanggal_peminjaman" id="tanggal_pinjam_input">
 
-                            {{-- Tanggal Peminjaman & Kembali --}}
+                                                        {{-- ✅ UPDATED: Jam Pinjam & Jam Kembali (bukan tanggal) --}}
                             <div class="grid grid-cols-2 gap-4">
-                                <div class="relative">
+                                <div>
                                     <label class="block font-sans text-[0.55rem] font-semibold tracking-[0.28em] uppercase text-label mb-2.5">
-                                        Tgl. Pinjam <span class="text-espresso">*</span>
+                                        Jam Mulai <span class="text-espresso">*</span>
                                     </label>
-                                    <input
-                                        type="date" name="tanggal_peminjaman" required value="{{ old('tanggal_peminjaman') }}"
-                                        min="{{ now()->format('Y-m-d') }}"
-                                        class="peer w-full bg-transparent border-b border-rule pb-2.5 pt-1 font-sans text-[0.82rem] text-ink outline-none transition-colors duration-200 focus:border-ink"
-                                    >
-                                    <span class="absolute bottom-0 left-0 h-px w-0 bg-ink transition-all duration-300 peer-focus:w-full"></span>
-                                    @error('tanggal_peminjaman')
-                                        <p class="font-sans text-[0.65rem] text-espresso mt-1">{{ $message }}</p>
+                                    <div class="relative">
+                                        <select
+                                            name="jam_peminjaman" id="jam_peminjaman_select" required
+                                            class="w-full appearance-none bg-cream border border-rule px-3 py-2.5 font-sans text-[0.82rem] text-ink outline-none focus:border-ink transition-colors duration-200"
+                                        >
+                                            <option value="">Pilih Jam</option>
+                                            <option value="07:00 - 08:30">07:00 - 08:30 (Jam 1)</option>
+                                            <option value="08:30 - 10:00">08:30 - 10:00 (Jam 2)</option>
+                                            <option value="10:00 - 11:30">10:00 - 11:30 (Jam 3)</option>
+                                            <option value="11:30 - 13:00">11:30 - 13:00 (Jam 4)</option>
+                                            <option value="13:00 - 14:30">13:00 - 14:30 (Jam 5)</option>
+                                            <option value="14:30 - 16:00">14:30 - 16:00 (Jam 6)</option>
+                                        </select>
+                                        <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ghost text-[0.55rem] pointer-events-none"></i>
+                                    </div>
+                                    @error('jam_peminjaman')
+                                        <p class="font-sans text-[0.65rem] text-espresso mt-1.5">{{ $message }}</p>
                                     @enderror
                                 </div>
 
-                                <div class="relative">
+                                <div>
                                     <label class="block font-sans text-[0.55rem] font-semibold tracking-[0.28em] uppercase text-label mb-2.5">
-                                        Tgl. Kembali <span class="text-espresso">*</span>
+                                        Jam Kembali <span class="text-espresso">*</span>
                                     </label>
-                                    <input
-                                        type="date" name="tanggal_kembali_rencana" required value="{{ old('tanggal_kembali_rencana') }}"
-                                        class="peer w-full bg-transparent border-b border-rule pb-2.5 pt-1 font-sans text-[0.82rem] text-ink outline-none transition-colors duration-200 focus:border-ink"
-                                    >
-                                    <span class="absolute bottom-0 left-0 h-px w-0 bg-ink transition-all duration-300 peer-focus:w-full"></span>
+                                    <div class="relative">
+                                        <select
+                                            name="tanggal_kembali_rencana" id="jam_kembali_select" required
+                                            class="w-full appearance-none bg-cream border border-rule px-3 py-2.5 font-sans text-[0.82rem] text-ink outline-none focus:border-ink transition-colors duration-200"
+                                        >
+                                            <option value="">Pilih Jam</option>
+                                            <option value="07:00 - 08:30">07:00 - 08:30 (Jam 1)</option>
+                                            <option value="08:30 - 10:00">08:30 - 10:00 (Jam 2)</option>
+                                            <option value="10:00 - 11:30">10:00 - 11:30 (Jam 3)</option>
+                                            <option value="11:30 - 13:00">11:30 - 13:00 (Jam 4)</option>
+                                            <option value="13:00 - 14:30">13:00 - 14:30 (Jam 5)</option>
+                                            <option value="14:30 - 16:00">14:30 - 16:00 (Jam 6)</option>
+                                        </select>
+                                        <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ghost text-[0.55rem] pointer-events-none"></i>
+                                    </div>
                                     @error('tanggal_kembali_rencana')
-                                        <p class="font-sans text-[0.65rem] text-espresso mt-1">{{ $message }}</p>
+                                        <p class="font-sans text-[0.65rem] text-espresso mt-1.5">{{ $message }}</p>
                                     @enderror
                                 </div>
                             </div>
