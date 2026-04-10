@@ -20,17 +20,16 @@ class PeminjamanController extends Controller
             public function guestStore(Request $request)
     {
         $validated = $request->validate([
-            'nama_peminjam_guest' => 'required|string|max:255',
-            // ❌ REMOVE: 'telepon_peminjam_guest' => 'required|string|max:20',
-            'alat_id' => 'required|exists:alat,alat_id',
-            'jumlah' => 'required|integer|min:1',
-            'tanggal_peminjaman' => 'required|date|after_or_equal:today',
-            'tanggal_kembali_rencana' => 'required|date|after:tanggal_peminjaman',
-            'tujuan_peminjaman' => 'nullable|string',
-            'kelas' => 'required|string|max:50',
-            'mata_pelajaran' => 'required|string|max:100',  
-            'jam_peminjaman' => 'required|string|max:50',
-        ]);
+        'nama_peminjam_guest' => 'required|string|max:255',
+        'alat_id' => 'required|exists:alat,alat_id',
+        'jumlah' => 'required|integer|min:1',
+        'tanggal_peminjaman' => 'required|date|after_or_equal:today',
+        'tanggal_kembali_rencana' => 'required|date|after:tanggal_peminjaman', // ✅ FIXED
+        'tujuan_peminjaman' => 'nullable|string',
+        'kelas' => 'required|string|max:50',
+        'mata_pelajaran' => 'required|string|max:100',  
+        'jam_peminjaman' => 'required|string|max:50',
+    ]);
 
         $alat = Alat::find($validated['alat_id']);
 
