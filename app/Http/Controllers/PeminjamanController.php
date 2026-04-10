@@ -11,78 +11,71 @@ use Illuminate\Support\Facades\DB;
 class PeminjamanController extends Controller
 {
     // ======= GUEST FORM (Tanpa Login) =======
+     // ✅ GUEST FORM - Tidak perlu pass data
     public function guestForm()
     {
-        $alats = Alat::where('stok_tersedia', '>', 0)->get();
-        return view('pages.peminjaman.guest-form', compact('alats'));
+        return view('pages.peminjaman.guest-form');
     }
 
- public function guestStore(Request $request)
-{
-    $validated = $request->validate([
-        'nama_peminjam_guest' => 'required|string|max:255',
-        'alat_unit_id' => 'required|exists:alat_units,id', // ✅ CHANGED: unit, bukan alat
-        'jumlah' => 'required|integer|min:1',
-        'kelas' => 'required|string|max:50',
-        'mata_pelajaran' => 'required|string|max:100',  
-        'jam_peminjaman' => 'required|string|max:50',
-        'jam_kembali' => 'required|string|max:50',
-        'tujuan_peminjaman' => 'nullable|string',
-    ]);
-
-    $alatUnit = AlatUnit::find($validated['alat_unit_id']);
-    
-    if (!$alatUnit) {
-        return back()->withErrors(['alat_unit_id' => 'Unit tidak ditemukan']);
-    }
-
-    if ($alatUnit->status !== 'tersedia') {
-        return back()->withErrors(['alat_unit_id' => 'Unit sedang tidak tersedia']);
-    }
-
-    $alat = $alatUnit->alat;
-
-    // ... validation ...
-
-    DB::transaction(function () use ($validated, $alatUnit, $alat) {
-        $tanggalHariIni = now()->toDateString();
-
-        $peminjaman = Peminjaman::create([
-            'user_id' => null,
-            'alat_id' => $alat->alat_id,
-            'alat_unit_id' => $alatUnit->id, // ✅ NEW: unit spesifik
-            'nama_peminjam_guest' => $validated['nama_peminjam_guest'],
-            'jumlah' => $validated['jumlah'],
-            'tanggal_peminjaman' => $tanggalHariIni,
-            'tanggal_kembali_rencana' => $tanggalHariIni,
-            'tujuan_peminjaman' => $validated['tujuan_peminjaman'] ?? null,
-            'kelas' => $validated['kelas'],
-            'mata_pelajaran' => $validated['mata_pelajaran'],  
-            'jam_peminjaman' => $validated['jam_peminjaman'],
-            'jam_kembali' => $validated['jam_kembali'],
-            'status' => 'disetujui',
-            'disetujui_oleh' => 1,
-            'tanggal_disetujui' => now(),
+    // ✅ GUEST STORE - Sesuai dengan form yang scan QR
+    public function guestStore(Request $request)
+    {
+        $validated = $request->validate([
+            'nama_peminjam_guest' => 'required|string|max:255',
+            'alat_id' => 'required|exists:alat,alat_id',  // ✅ Input dari QR scan
+            'jumlah' => 'required|integer|min:1',
+            'kelas' => 'required|string|max:50',
+            'mata_pelajaran' => 'required|string|max:100',  
+            'jam_peminjaman' => 'required|string|max:50',
+            'jam_kembali' => 'required|string|max:50',
+            'tujuan_peminjaman' => 'nullable|string',
+            'tanggal_peminjaman' => 'required|date',
         ]);
 
-        // ✅ Update unit status
-        $alatUnit->update(['status' => 'dipinjam']);
+        $alat = Alat::find($validated['alat_id']);
+        
+        if (!$alat) {
+            return back()->withErrors(['alat_id' => 'Alat tidak ditemukan']);
+        }
 
-        // Stok masih berkurang dari alat (untuk display total)
-        $alat->decrement('stok_tersedia', $validated['jumlah']);
+        if ($validated['jumlah'] > $alat->stok_tersedia) {
+            return back()->withErrors(['jumlah' => "Stok tidak cukup. Tersedia hanya {$alat->stok_tersedia} unit"]);
+        }
 
-        LogAktivitas::create([
-            'user_id' => 1,
-            'aktivitas' => "Peminjaman - Unit {$alatUnit->unit_number}",
-            'modul' => 'Peminjaman',
-            'timestamp' => now(),
-        ]);
-    });
+        DB::transaction(function () use ($validated, $alat) {
+            $peminjaman = Peminjaman::create([
+                'user_id' => null,
+                'alat_id' => $validated['alat_id'],
+                'alat_unit_id' => null,  // Bisa null untuk guest
+                'nama_peminjam_guest' => $validated['nama_peminjam_guest'],
+                'jumlah' => $validated['jumlah'],
+                'tanggal_peminjaman' => $validated['tanggal_peminjaman'],
+                'tanggal_kembali_rencana' => $validated['tanggal_peminjaman'],
+                'tujuan_peminjaman' => $validated['tujuan_peminjaman'] ?? null,
+                'kelas' => $validated['kelas'],
+                'mata_pelajaran' => $validated['mata_pelajaran'],  
+                'jam_peminjaman' => $validated['jam_peminjaman'],
+                'jam_kembali' => $validated['jam_kembali'],
+                'status' => 'disetujui',
+                'disetujui_oleh' => 1,
+                'tanggal_disetujui' => now(),
+            ]);
 
-    return redirect()->route('peminjaman.guest')
-        ->with('success', "✅ Peminjaman Disetujui! Kode: <strong>{$peminjaman->kode_peminjaman}</strong>")
-        ->with('kode_peminjaman', $peminjaman->kode_peminjaman);
-}
+            // Kurangi stok
+            $alat->decrement('stok_tersedia', $validated['jumlah']);
+
+            LogAktivitas::create([
+                'user_id' => 1,
+                'aktivitas' => "Peminjaman Guest - {$alat->nama_alat}",
+                'modul' => 'Peminjaman',
+                'timestamp' => now(),
+            ]);
+        });
+
+        return redirect()->route('peminjaman.guest')
+            ->with('success', "✅ Peminjaman Disetujui! Kode: <strong>{$peminjaman->kode_peminjaman}</strong>")
+            ->with('kode_peminjaman', $peminjaman->kode_peminjaman);
+    }
 
     // ======= AUTHENTICATED ROUTES =======
     public function index()
