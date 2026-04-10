@@ -17,34 +17,38 @@ class PeminjamanController extends Controller
         return view('pages.peminjaman.guest-form', compact('alats'));
     }
 
-        public function guestStore(Request $request)
+            public function guestStore(Request $request)
     {
         $validated = $request->validate([
             'nama_peminjam_guest' => 'required|string|max:255',
-            'telepon_peminjam_guest' => 'required|string|max:20',
+            // ❌ REMOVE: 'telepon_peminjam_guest' => 'required|string|max:20',
             'alat_id' => 'required|exists:alat,alat_id',
+            'jumlah' => 'required|integer|min:1',
+            'tanggal_peminjaman' => 'required|date|after_or_equal:today',
+            'tanggal_kembali_rencana' => 'required|date|after:tanggal_peminjaman',
+            'tujuan_peminjaman' => 'nullable|string',
             'kelas' => 'required|string|max:50',
             'mata_pelajaran' => 'required|string|max:100',  
             'jam_peminjaman' => 'required|string|max:50',
-            'tanggal_peminjaman' => 'required|date',
-            'tanggal_kembali_rencana' => 'required|string|max:50', // ✅ Jam kembali, bukan tanggal
-            'tujuan_peminjaman' => 'nullable|string',
         ]);
 
         $alat = Alat::find($validated['alat_id']);
+
+        if ($validated['jumlah'] > $alat->stok_tersedia) {
+            return back()->withErrors(['jumlah' => 'Stok tidak cukup untuk alat ini. Maksimal: ' . $alat->stok_tersedia . ' unit']);
+        }
 
         $peminjaman = Peminjaman::create([
             'user_id' => null,
             'alat_id' => $validated['alat_id'],
             'nama_peminjam_guest' => $validated['nama_peminjam_guest'],
-            'telepon_peminjam_guest' => $validated['telepon_peminjam_guest'],
-            'jumlah' => 1, // ✅ ALWAYS 1 (satu unit per scan)
+            'jumlah' => $validated['jumlah'],
             'tanggal_peminjaman' => $validated['tanggal_peminjaman'],
-            'tanggal_kembali_rencana' => $validated['tanggal_peminjaman'], // ✅ Same day
-            'jam_peminjaman' => $validated['jam_peminjaman'], // ✅ Store jam
+            'tanggal_kembali_rencana' => $validated['tanggal_kembali_rencana'],
             'tujuan_peminjaman' => $validated['tujuan_peminjaman'] ?? null,
             'kelas' => $validated['kelas'],
             'mata_pelajaran' => $validated['mata_pelajaran'],  
+            'jam_peminjaman' => $validated['jam_peminjaman'],
             'status' => 'menunggu',
             'disetujui_oleh' => null,
         ]);

@@ -155,21 +155,30 @@
                                 @enderror
                             </div>
 
-                            {{-- Telepon --}}
-                            <div class="relative">
+                                {{-- Kelas --}}
+                            <div>
                                 <label class="block font-sans text-[0.55rem] font-semibold tracking-[0.28em] uppercase text-label mb-2.5">
-                                    Nomor Telepon <span class="text-espresso">*</span>
+                                    Kelas <span class="text-espresso">*</span>
                                 </label>
-                                <input
-                                    type="tel" 
-                                    name="telepon_peminjam_guest" 
-                                    value="{{ old('telepon_peminjam_guest') }}" 
-                                    required
-                                    placeholder="+62 8xx xxx xxxx"
-                                    class="peer w-full bg-transparent border-b border-rule pb-2.5 pt-1 font-sans text-[0.85rem] text-ink outline-none placeholder-ghost/60 transition-colors duration-200 focus:border-ink"
-                                >
-                                <span class="absolute bottom-0 left-0 h-px w-0 bg-ink transition-all duration-300 peer-focus:w-full"></span>
-                                @error('telepon_peminjam_guest')
+                                <div class="relative">
+                                    <select
+                                        name="kelas" id="kelas_select" required
+                                        class="w-full appearance-none bg-cream border border-rule px-3 py-2.5 font-sans text-[0.82rem] text-ink outline-none focus:border-ink transition-colors duration-200"
+                                    >
+                                        <option value="">Pilih Kelas</option>
+                                        <option value="10-A">10-A</option>
+                                        <option value="10-B">10-B</option>
+                                        <option value="10-C">10-C</option>
+                                        <option value="11-A">11-A</option>
+                                        <option value="11-B">11-B</option>
+                                        <option value="11-C">11-C</option>
+                                        <option value="12-A">12-A</option>
+                                        <option value="12-B">12-B</option>
+                                        <option value="12-C">12-C</option>
+                                    </select>
+                                    <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ghost text-[0.55rem] pointer-events-none"></i>
+                                </div>
+                                @error('kelas')
                                     <p class="font-sans text-[0.65rem] text-espresso mt-1.5">{{ $message }}</p>
                                 @enderror
                             </div>
@@ -243,33 +252,6 @@
                                 @enderror
                             </div>
 
-                            {{-- Kelas --}}
-                            <div>
-                                <label class="block font-sans text-[0.55rem] font-semibold tracking-[0.28em] uppercase text-label mb-2.5">
-                                    Kelas <span class="text-espresso">*</span>
-                                </label>
-                                <div class="relative">
-                                    <select
-                                        name="kelas" id="kelas_select" required
-                                        class="w-full appearance-none bg-cream border border-rule px-3 py-2.5 font-sans text-[0.82rem] text-ink outline-none focus:border-ink transition-colors duration-200"
-                                    >
-                                        <option value="">Pilih Kelas</option>
-                                        <option value="10-A">10-A</option>
-                                        <option value="10-B">10-B</option>
-                                        <option value="10-C">10-C</option>
-                                        <option value="11-A">11-A</option>
-                                        <option value="11-B">11-B</option>
-                                        <option value="11-C">11-C</option>
-                                        <option value="12-A">12-A</option>
-                                        <option value="12-B">12-B</option>
-                                        <option value="12-C">12-C</option>
-                                    </select>
-                                    <i class="fas fa-chevron-down absolute right-3 top-1/2 -translate-y-1/2 text-ghost text-[0.55rem] pointer-events-none"></i>
-                                </div>
-                                @error('kelas')
-                                    <p class="font-sans text-[0.65rem] text-espresso mt-1.5">{{ $message }}</p>
-                                @enderror
-                            </div>
 
                             {{-- Mata Pelajaran --}}
                             <div>
@@ -525,7 +507,7 @@
 
 
 
- <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 <script>
     // ✅ VARIABLES
     let video = null;
