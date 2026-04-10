@@ -156,161 +156,377 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
-    <script>
-        let currentScannedAlat = null;
-        let selectedKondisi = null;
-        let scannedList = [];
+<script>
+    let currentScannedAlat = null;
+    let selectedKondisi = null;
+    let scannedList = [];
 
-        function selectKondisi(kondisi) {
-            selectedKondisi = kondisi;
+    // ✅ QR SCANNER VARIABLES
+    let video = null;
+    let canvas = null;
+    let stream = null;
+    let isScanning = false;
+    let cameraBusy = false;
 
-            // Update button states
-            ['baik', 'rusak', 'hilang'].forEach(k => {
-                const btn = document.getElementById(`btn-${k}`);
-                if (k === kondisi) {
-                    btn.classList.add('ring-2', 'ring-offset-2');
-                } else {
-                    btn.classList.remove('ring-2', 'ring-offset-2');
-                }
-            });
+    function selectKondisi(kondisi) {
+        selectedKondisi = kondisi;
 
-            // Show persentase input kalau rusak
-            const persenContainer = document.getElementById('persenContainer');
-            const persen_input = document.getElementById('persen_custom');
-            
-            if (kondisi === 'rusak') {
-                persenContainer.style.display = 'block';
-                persen_input.value = currentScannedAlat?.persen_default_rusak || 30;
-                updateDendaPreview();
-                persen_input.addEventListener('input', updateDendaPreview);
+        // Update button states
+        ['baik', 'rusak', 'hilang'].forEach(k => {
+            const btn = document.getElementById(`btn-${k}`);
+            if (k === kondisi) {
+                btn.classList.add('ring-2', 'ring-offset-2');
             } else {
-                persenContainer.style.display = 'none';
-                updateDendaPreview();
+                btn.classList.remove('ring-2', 'ring-offset-2');
             }
+        });
 
-            document.getElementById('btn_submit_kondisi').disabled = false;
+        // Show persentase input kalau rusak
+        const persenContainer = document.getElementById('persenContainer');
+        const persen_input = document.getElementById('persen_custom');
+        
+        if (kondisi === 'rusak') {
+            persenContainer.style.display = 'block';
+            persen_input.value = currentScannedAlat?.persen_default_rusak || 30;
+            updateDendaPreview();
+            persen_input.addEventListener('input', updateDendaPreview);
+        } else {
+            persenContainer.style.display = 'none';
+            updateDendaPreview();
         }
 
-        function updateDendaPreview() {
-            if (!currentScannedAlat || !selectedKondisi) return;
+        document.getElementById('btn_submit_kondisi').disabled = false;
+    }
 
-            const harga = currentScannedAlat.harga_alat;
-            let denda = 0;
-            let showPersen = false;
+    function updateDendaPreview() {
+        if (!currentScannedAlat || !selectedKondisi) return;
 
-            if (selectedKondisi === 'baik') {
-                denda = 0;
-            } else if (selectedKondisi === 'rusak') {
-                const persen = parseInt(document.getElementById('persen_custom').value) || 30;
-                denda = (harga * (persen / 100)) * currentScannedAlat.jumlah;
-                document.getElementById('prev_persen').textContent = persen + '%';
-                showPersen = true;
-            } else if (selectedKondisi === 'hilang') {
-                denda = harga * currentScannedAlat.jumlah;
-            }
+        const harga = currentScannedAlat.harga_alat;
+        let denda = 0;
+        let showPersen = false;
 
-            // Update preview
-            document.getElementById('prev_harga').textContent = 'Rp ' + formatCurrency(harga);
-            document.getElementById('prev_total_denda').textContent = 'Rp ' + formatCurrency(denda);
-            document.getElementById('prev_persen_row').style.display = showPersen ? 'flex' : 'none';
-            
-            if (denda > 0) {
-                document.getElementById('dendaPreview').style.display = 'block';
-            } else {
-                document.getElementById('dendaPreview').style.display = 'none';
-            }
+        if (selectedKondisi === 'baik') {
+            denda = 0;
+        } else if (selectedKondisi === 'rusak') {
+            const persen = parseInt(document.getElementById('persen_custom').value) || 30;
+            denda = (harga * (persen / 100)) * currentScannedAlat.jumlah;
+            document.getElementById('prev_persen').textContent = persen + '%';
+            showPersen = true;
+        } else if (selectedKondisi === 'hilang') {
+            denda = harga * currentScannedAlat.jumlah;
         }
 
-        function formatCurrency(value) {
-            return new Intl.NumberFormat('id-ID').format(value);
-        }
-
-        function resetKondisi() {
-            selectedKondisi = null;
-            ['baik', 'rusak', 'hilang'].forEach(k => {
-                document.getElementById(`btn-${k}`).classList.remove('ring-2', 'ring-offset-2');
-            });
-            document.getElementById('btn_submit_kondisi').disabled = true;
-            document.getElementById('formKondisi').style.display = 'none';
-            document.getElementById('persenContainer').style.display = 'none';
+        // Update preview
+        document.getElementById('prev_harga').textContent = 'Rp ' + formatCurrency(harga);
+        document.getElementById('prev_total_denda').textContent = 'Rp ' + formatCurrency(denda);
+        document.getElementById('prev_persen_row').style.display = showPersen ? 'flex' : 'none';
+        
+        if (denda > 0) {
+            document.getElementById('dendaPreview').style.display = 'block';
+        } else {
             document.getElementById('dendaPreview').style.display = 'none';
         }
+    }
 
-        // QR Scanner
-        document.getElementById('qr_scanner_return').addEventListener('click', function(e) {
-            e.preventDefault();
+    function formatCurrency(value) {
+        return new Intl.NumberFormat('id-ID').format(value);
+    }
+
+    function resetKondisi() {
+        selectedKondisi = null;
+        ['baik', 'rusak', 'hilang'].forEach(k => {
+            document.getElementById(`btn-${k}`).classList.remove('ring-2', 'ring-offset-2');
+        });
+        document.getElementById('btn_submit_kondisi').disabled = true;
+        document.getElementById('formKondisi').style.display = 'none';
+        document.getElementById('persenContainer').style.display = 'none';
+        document.getElementById('dendaPreview').style.display = 'none';
+    }
+
+    // ✅ QR SCANNER - START CAMERA
+    document.getElementById('qr_scanner_return').addEventListener('click', function(e) {
+        e.preventDefault();
+        if (!cameraBusy) {
+            cameraBusy = true;
+            console.log('🎥 Starting camera...');
             startReturnCamera();
-        });
+            setTimeout(() => { cameraBusy = false; }, 500);
+        }
+    });
 
-        function startReturnCamera() {
-            // ... (QR camera logic sama seperti peminjaman)
+    function startReturnCamera() {
+        if (isScanning || video) {
+            console.warn('⚠️ Camera already running');
+            return;
+        }
+        
+        isScanning = true;
+        cleanupCamera();
+
+        // Create video element
+        video = document.createElement('video');
+        video.id = 'qr_video_return';
+        video.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;z-index:9999;object-fit:cover;';
+        document.body.appendChild(video);
+
+        // Create close button
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.innerHTML = '✕ Tutup Kamera';
+        closeBtn.className = 'qr-close-btn';
+        closeBtn.style.cssText = 'position:fixed;top:20px;right:20px;z-index:10000;padding:10px 20px;background:#1c1917;color:#fffdf9;border:none;cursor:pointer;font-weight:bold;border-radius:5px;font-family:Arial,sans-serif;';
+        closeBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            console.log('❌ Close button clicked');
+            stopReturnCamera();
+        });
+        document.body.appendChild(closeBtn);
+
+        // Create canvas
+        canvas = document.createElement('canvas');
+        canvas.id = 'qr_canvas_return';
+        canvas.style.display = 'none';
+        document.body.appendChild(canvas);
+
+        // Request camera dengan timeout
+        const cameraTimeout = setTimeout(() => {
+            console.error('❌ Camera timeout');
+            document.getElementById('qr_status_return').textContent = '❌ Kamera timeout. Coba lagi.';
+            document.getElementById('qr_status_return').style.color = '#b23d3d';
+            stopReturnCamera();
+        }, 10000);
+
+        navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: 'environment',
+                width: { ideal: 640 },
+                height: { ideal: 480 }
+            }
+        })
+        .then(s => {
+            clearTimeout(cameraTimeout);
+            console.log('✅ Camera stream obtained');
+            stream = s;
+            video.srcObject = stream;
+            video.setAttribute('autoplay', 'true');
+            video.setAttribute('playsinline', 'true');
+            
+            video.onloadedmetadata = () => {
+                video.play();
+                console.log('✅ Video playing');
+                
+                document.getElementById('qr_status_return').textContent = '📹 Arahkan kamera ke QR code...';
+                document.getElementById('qr_status_return').style.color = '#1c1917';
+                
+                scanQrCodeReturn();
+            };
+        })
+        .catch(err => {
+            clearTimeout(cameraTimeout);
+            console.error('❌ Camera error:', err);
+            document.getElementById('qr_status_return').textContent = '❌ Error: ' + err.message;
+            document.getElementById('qr_status_return').style.color = '#b23d3d';
+            stopReturnCamera();
+        });
+    }
+
+    // ✅ SCAN QR CODE
+    function scanQrCodeReturn() {
+        if (!video || !canvas || !isScanning) {
+            return;
         }
 
-        // Submit kondisi
-        document.getElementById('btn_submit_kondisi').addEventListener('click', function() {
-            if (!currentScannedAlat || !selectedKondisi) return;
+        const ctx = canvas.getContext('2d');
+        
+        if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth && video.videoHeight) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            try {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const code = jsQR(imageData.data, imageData.width, imageData.height);
 
-            const persen = selectedKondisi === 'rusak' 
-                ? parseInt(document.getElementById('persen_custom').value) || 30
-                : (selectedKondisi === 'hilang' ? 100 : 0);
-
-            // Submit ke server
-            fetch('/pengembalian/quick-process', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
-                },
-                body: JSON.stringify({
-                    peminjaman_id: currentScannedAlat.peminjaman_id,
-                    kondisi: selectedKondisi,
-                    persen_denda_custom: persen,
-                    tanggal_kembali: new Date().toISOString().split('T')[0],
-                })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success) {
-                    // Add to list
-                    scannedList.push({
-                        nama: currentScannedAlat.nama_alat,
-                        peminjam: currentScannedAlat.nama_peminjam,
-                        kondisi: selectedKondisi,
-                        denda: data.denda,
-                    });
-
-                    // Update UI
-                    document.getElementById('countBarang').textContent = scannedList.length + ' barang';
-                    updateBarangList();
-
-                    // Reset
-                    resetKondisi();
-                    currentScannedAlat = null;
-                    document.getElementById('qr_status_return').textContent = '✅ Berhasil! Siap scan barang berikutnya.';
-                    document.getElementById('qr_status_return').style.color = '#1c1917';
-                } else {
-                    alert('Error: ' + data.message);
+                if (code) {
+                    console.log('✅ QR Detected:', code.data);
+                    stopReturnCamera();
+                    processQrDataReturn(code.data);
+                    return;
                 }
-            });
-        });
-
-        function updateBarangList() {
-            const list = document.getElementById('daftarBarangKembali');
-            list.innerHTML = scannedList.map((item, i) => `
-                <div class="px-6 py-4 flex items-center justify-between">
-                    <div class="flex-1">
-                        <p class="font-sans text-[0.8rem] font-semibold text-ink">${item.nama}</p>
-                        <p class="font-sans text-[0.7rem] text-label">${item.peminjam}</p>
-                    </div>
-                    <div class="text-right">
-                        <span class="px-2.5 py-1 border border-rule/50 bg-cream font-sans text-[0.65rem] font-bold tracking-[0.1em] uppercase">
-                            ${item.kondisi === 'baik' ? '✓ Baik' : item.kondisi === 'rusak' ? '⚠️ Rusak' : '❌ Hilang'}
-                        </span>
-                        <p class="font-sans text-[0.75rem] font-bold text-espresso mt-1">Rp ${formatCurrency(item.denda)}</p>
-                    </div>
-                </div>
-            `).join('');
+            } catch (e) {
+                console.error('❌ Canvas error:', e);
+            }
         }
-    </script>
+
+        requestAnimationFrame(scanQrCodeReturn);
+    }
+
+    // ✅ PROCESS QR DATA
+    function processQrDataReturn(qrData) {
+        console.log('Processing QR...');
+        
+        // Validate JSON
+        let parsedData;
+        try {
+            parsedData = typeof qrData === 'string' ? JSON.parse(qrData) : qrData;
+            console.log('✅ Parsed QR Data:', parsedData);
+        } catch (e) {
+            console.error('❌ Invalid JSON:', e);
+            document.getElementById('qr_status_return').textContent = '❌ Format QR tidak valid';
+            document.getElementById('qr_status_return').style.color = '#b23d3d';
+            return;
+        }
+
+        // Send to server API
+        fetch('/pengembalian/api/get-from-qr', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({ qr_data: qrData })
+        })
+        .then(r => {
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            return r.json();
+        })
+        .then(data => {
+            console.log('✅ API Response:', data);
+            
+            if (data.success) {
+                const alat = data.alat;
+                
+                // Set current scanned alat
+                currentScannedAlat = alat;
+                
+                // Show form
+                document.getElementById('formKondisi').style.display = 'block';
+                document.getElementById('return_nama_alat').textContent = alat.nama_alat + ' (Unit ' + alat.unit_number + ')';
+                document.getElementById('return_nama_peminjam').textContent = 'Peminjam: ' + alat.nama_peminjam;
+                document.getElementById('return_harga').textContent = 'Harga: Rp ' + formatCurrency(alat.harga_alat);
+                
+                document.getElementById('qr_status_return').textContent = '✅ Barang terdeteksi! Pilih kondisi barang.';
+                document.getElementById('qr_status_return').style.color = '#1c1917';
+            } else {
+                document.getElementById('qr_status_return').textContent = '❌ ' + (data.message || 'Alat tidak ditemukan');
+                document.getElementById('qr_status_return').style.color = '#b23d3d';
+            }
+        })
+        .catch(error => {
+            console.error('❌ Fetch error:', error);
+            document.getElementById('qr_status_return').textContent = '❌ Error: ' + error.message;
+            document.getElementById('qr_status_return').style.color = '#b23d3d';
+        });
+    }
+
+    // ✅ CLEANUP CAMERA
+    function cleanupCamera() {
+        console.log('🧹 Cleaning up camera...');
+        
+        if (stream) {
+            stream.getTracks().forEach(track => {
+                track.stop();
+            });
+            stream = null;
+        }
+        
+        const existingVideo = document.getElementById('qr_video_return');
+        if (existingVideo) existingVideo.remove();
+        
+        const existingCanvas = document.getElementById('qr_canvas_return');
+        if (existingCanvas) existingCanvas.remove();
+        
+        const closeBtns = document.querySelectorAll('.qr-close-btn');
+        closeBtns.forEach(btn => btn.remove());
+
+        video = null;
+        canvas = null;
+    }
+
+    // ✅ STOP CAMERA
+    function stopReturnCamera() {
+        console.log('⏹️ Stopping camera...');
+        isScanning = false;
+        cleanupCamera();
+    }
+
+    // ✅ CLEANUP ON PAGE UNLOAD
+    window.addEventListener('beforeunload', stopReturnCamera);
+
+    // ✅ SUBMIT KONDISI
+    document.getElementById('btn_submit_kondisi').addEventListener('click', function() {
+        if (!currentScannedAlat || !selectedKondisi) return;
+
+        const persen = selectedKondisi === 'rusak' 
+            ? parseInt(document.getElementById('persen_custom').value) || 30
+            : (selectedKondisi === 'hilang' ? 100 : 0);
+
+        // Submit ke server
+        fetch('/pengembalian/quick-process', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content
+            },
+            body: JSON.stringify({
+                peminjaman_id: currentScannedAlat.peminjaman_id,
+                alat_unit_id: currentScannedAlat.alat_unit_id,
+                kondisi: selectedKondisi,
+                persen_denda_custom: persen,
+                tanggal_kembali: new Date().toISOString().split('T')[0],
+            })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                // Add to list
+                scannedList.push({
+                    nama: currentScannedAlat.nama_alat,
+                    peminjam: currentScannedAlat.nama_peminjam,
+                    kondisi: selectedKondisi,
+                    denda: data.denda,
+                    unit: currentScannedAlat.unit_number,
+                });
+
+                // Update UI
+                document.getElementById('countBarang').textContent = scannedList.length + ' barang';
+                updateBarangList();
+
+                // Reset
+                resetKondisi();
+                currentScannedAlat = null;
+                selectedKondisi = null;
+                document.getElementById('qr_status_return').textContent = '✅ Berhasil! Siap scan barang berikutnya.';
+                document.getElementById('qr_status_return').style.color = '#1c1917';
+            } else {
+                alert('Error: ' + (data.message || 'Gagal memproses pengembalian'));
+            }
+        })
+        .catch(err => {
+            console.error('Error:', err);
+            alert('Error: ' + err.message);
+        });
+    });
+
+    function updateBarangList() {
+        const list = document.getElementById('daftarBarangKembali');
+        list.innerHTML = scannedList.map((item, i) => `
+            <div class="px-6 py-4 flex items-center justify-between">
+                <div class="flex-1">
+                    <p class="font-sans text-[0.8rem] font-semibold text-ink">${item.nama} (Unit ${item.unit})</p>
+                    <p class="font-sans text-[0.7rem] text-label">${item.peminjam}</p>
+                </div>
+                <div class="text-right">
+                    <span class="px-2.5 py-1 border border-rule/50 bg-cream font-sans text-[0.65rem] font-bold tracking-[0.1em] uppercase">
+                        ${item.kondisi === 'baik' ? '✓ Baik' : item.kondisi === 'rusak' ? '⚠️ Rusak' : '❌ Hilang'}
+                    </span>
+                    <p class="font-sans text-[0.75rem] font-bold text-espresso mt-1">Rp ${formatCurrency(item.denda)}</p>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    console.log('✅ Quick Return Script initialized');
+</script>
 
 @endsection

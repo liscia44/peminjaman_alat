@@ -16,6 +16,7 @@ class Pengembalian extends Model
 
     protected $fillable = [
         'peminjaman_id',
+        'alat_unit_id',  // ✅ ADD THIS
         'tanggal_kembali_aktual',
         'total_denda',
         'status_denda',
@@ -32,6 +33,12 @@ class Pengembalian extends Model
     public function peminjaman()
     {
         return $this->belongsTo(Peminjaman::class, 'peminjaman_id', 'peminjaman_id');
+    }
+
+    // ✅ ADD THIS - Relationship ke unit spesifik
+    public function alatUnit()
+    {
+        return $this->belongsTo(AlatUnit::class, 'alat_unit_id');
     }
 
     public function details()
