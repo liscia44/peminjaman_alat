@@ -892,12 +892,27 @@ function showInstallPrompt() {
       cursor: pointer;
       padding: 8px;
       margin-right: 12px;
+      display: inline-flex;
     `;
     
-    // ✅ Insert sebelah LOGIN ADMIN button
-    const loginBtn = document.querySelector('a[href*="login"]');
-    if (loginBtn && loginBtn.parentElement) {
-      loginBtn.parentElement.insertBefore(installBtn, loginBtn);
+    // ✅ DEBUG: cari navbar dulu
+    const navbar = document.querySelector('nav');
+    console.log('🔍 Navbar found:', !!navbar);
+    
+    if (navbar) {
+      // ✅ DEBUG: cari login button
+      const navRight = navbar.querySelector('.flex.items-center.justify-between > div:last-child');
+      console.log('🔍 Nav right section found:', !!navRight);
+      
+      if (navRight) {
+        // Insert di awal (sebelum login button)
+        navRight.insertBefore(installBtn, navRight.firstChild);
+        console.log('✅ Install button inserted!');
+      } else {
+        // Fallback: append ke navbar aja
+        navbar.appendChild(installBtn);
+        console.log('⚠️ Appended to navbar (fallback)');
+      }
     }
   }
   
