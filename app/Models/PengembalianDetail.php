@@ -5,31 +5,49 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class PengembalianDetail extends Model
+class Pengembalian extends Model
 {
     use HasFactory;
 
-    protected $table = 'pengembalian_detail';
-    protected $primaryKey = 'detail_id';
+    protected $table = 'pengembalian';
+    protected $primaryKey = 'pengembalian_id';
     public $incrementing = true;
     protected $keyType = 'int';
 
     protected $fillable = [
-        'pengembalian_id',
-        'kondisi_alat',
-        'jumlah',
-        'harga_alat',
-        'persen_denda',
-        'denda_barang',
+        'peminjaman_id',
+        'alat_unit_id',  // ✅ ADD THIS
+        'tanggal_kembali_aktual',
+        'total_denda',
+        'status_denda',
+        'keterangan',
     ];
 
     protected $casts = [
-        'harga_alat' => 'decimal:2',
-        'denda_barang' => 'decimal:2',
+        'tanggal_kembali_aktual' => 'date',
+        'tarif_denda_per_hari' => 'decimal:2',
+        'denda_keterlambatan' => 'decimal:2',
+        'total_denda' => 'decimal:2',
     ];
 
-    public function pengembalian()
+    public function peminjaman()
     {
-        return $this->belongsTo(Pengembalian::class, 'pengembalian_id', 'pengembalian_id');
+        return $this->belongsTo(Peminjaman::class, 'peminjaman_id', 'peminjaman_id');
+    }
+
+    // ✅ ADD THIS
+    public function alatUnit()
+    {
+        return $this->belongsTo(AlatUnit::class, 'alat_unit_id');
+    }
+
+    public function details()
+    {
+        return $this->hasMany(PengembalianDetail::class, 'pengembalian_id', 'pengembalian_id');
+    }
+
+    public function getRouteKeyName()
+    {
+        return 'pengembalian_id';
     }
 }

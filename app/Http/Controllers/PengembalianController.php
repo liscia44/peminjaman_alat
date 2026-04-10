@@ -189,47 +189,23 @@ public function quickProcess(Request $request)
 {
     $validated = $request->validate([
         'peminjaman_id' => 'required|exists:peminjaman,peminjaman_id',
+        'alat_unit_id' => 'required|exists:alat_units,id', // ✅ NEW
         'kondisi' => 'required|in:baik,rusak,hilang',
-        'persen_denda_custom' => 'nullable|numeric|min:0|max:100', // ✅ CUSTOM %
+        'persen_denda_custom' => 'nullable|numeric|min:0|max:100',
         'tanggal_kembali' => 'required|date',
         'keterangan' => 'nullable|string',
     ]);
 
     $peminjaman = Peminjaman::findOrFail($validated['peminjaman_id']);
-    $alat = $peminjaman->alat;
+    $alatUnit = AlatUnit::findOrFail($validated['alat_unit_id']);
+    $alat = $alatUnit->alat;
 
-    $persenDenda = $validated['persen_denda_custom'] ?? 0;
-    
-    // Jika baik, persentase = 0
-    if ($validated['kondisi'] === 'baik') {
-        $persenDenda = 0;
-    }
-    // Jika rusak, gunakan custom atau default
-    elseif ($validated['kondisi'] === 'rusak') {
-        $persenDenda = $validated['persen_denda_custom'] ?? ($alat->persen_denda_rusak ?? 30);
-    }
-    // Jika hilang, selalu 100%
-    elseif ($validated['kondisi'] === 'hilang') {
-        $persenDenda = 100;
-    }
+    // ... calculation ...
 
-    // Hitung denda
-    $dendaDetail = 0;
-    if ($validated['kondisi'] === 'rusak') {
-        $dendaDetail = ($alat->harga_alat * ($persenDenda / 100)) * $peminjaman->jumlah;
-    } elseif ($validated['kondisi'] === 'hilang') {
-        $dendaDetail = $alat->harga_alat * $peminjaman->jumlah;
-    }
-
-    DB::transaction(function () use (
-        $validated,
-        $peminjaman,
-        $alat,
-        $persenDenda,
-        $dendaDetail
-    ) {
+    DB::transaction(function () use ($validated, $peminjaman, $alatUnit, $alat, $persenDenda, $dendaDetail) {
         $pengembalian = Pengembalian::create([
             'peminjaman_id' => $validated['peminjaman_id'],
+            'alat_unit_id' => $alatUnit->id, // ✅ NEW
             'tanggal_kembali_aktual' => $validated['tanggal_kembali'],
             'total_denda' => $dendaDetail,
             'status_denda' => $dendaDetail > 0 ? 'belum_lunas' : 'lunas',
@@ -238,6 +214,7 @@ public function quickProcess(Request $request)
 
         PengembalianDetail::create([
             'pengembalian_id' => $pengembalian->pengembalian_id,
+            'alat_unit_id' => $alatUnit->id, // ✅ NEW
             'kondisi_alat' => $validated['kondisi'],
             'jumlah' => $peminjaman->jumlah,
             'harga_alat' => $alat->harga_alat,
@@ -247,27 +224,22 @@ public function quickProcess(Request $request)
 
         $peminjaman->update(['status' => 'dikembalikan']);
 
-        // ✅ Stock management
+        // ✅ Update unit status
+        if ($validated['kondisi'] === 'baik') {
+            $alatUnit->update(['status' => 'tersedia']);
+        } else {
+            $alatUnit->update(['status' => $validated['kondisi']]);
+        }
+
+        // Stok increment kalau baik
         if ($validated['kondisi'] === 'baik') {
             $alat->increment('stok_tersedia', $peminjaman->jumlah);
-        } elseif (in_array($validated['kondisi'], ['rusak', 'hilang'])) {
-            $alat->update(['kondisi' => 'rusak']);
         }
     });
 
-    LogAktivitas::create([
-        'user_id' => Auth::id(),
-        'aktivitas' => 'Quick Return - ' . $validated['kondisi'],
-        'modul' => 'Pengembalian',
-        'timestamp' => now(),
-    ]);
-
-    return response()->json([
-        'success' => true,
-        'message' => 'Pengembalian berhasil diproses!',
-        'denda' => $dendaDetail,
-    ]);
+    return response()->json(['success' => true]);
 }
+
 
 // ✅ API: Get peminjaman + detail harga dari QR scan
 public function getFromQr(Request $request)
@@ -277,7 +249,7 @@ public function getFromQr(Request $request)
     ]);
 
     $data = json_decode($validated['qr_data'], true);
-    $alatUnit = \App\Models\AlatUnit::find($data['alat_unit_id'] ?? null);
+    $alatUnit = AlatUnit::find($data['alat_unit_id'] ?? null);
 
     if (!$alatUnit) {
         return response()->json(['success' => false, 'message' => 'Unit tidak ditemukan'], 404);
@@ -285,8 +257,8 @@ public function getFromQr(Request $request)
 
     $alat = $alatUnit->alat;
 
-    // Cari peminjaman yang pending untuk alat ini
-    $peminjaman = Peminjaman::where('alat_id', $alat->alat_id)
+    // ✅ Cari peminjaman untuk unit SPESIFIK ini
+    $peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
         ->where('status', 'disetujui')
         ->whereDoesntHave('pengembalian')
         ->first();
@@ -294,7 +266,7 @@ public function getFromQr(Request $request)
     if (!$peminjaman) {
         return response()->json([
             'success' => false,
-            'message' => 'Tidak ada peminjaman pending untuk alat ini'
+            'message' => 'Tidak ada peminjaman pending untuk unit ini'
         ], 404);
     }
 
@@ -302,7 +274,9 @@ public function getFromQr(Request $request)
         'success' => true,
         'alat' => [
             'peminjaman_id' => $peminjaman->peminjaman_id,
+            'alat_unit_id' => $alatUnit->id, // ✅ NEW
             'nama_alat' => $alat->nama_alat,
+            'unit_number' => $alatUnit->unit_number, // ✅ NEW
             'nama_peminjam' => $peminjaman->getNamaPeminjam(),
             'jumlah' => $peminjaman->jumlah,
             'harga_alat' => (float) $alat->harga_alat,

@@ -117,6 +117,8 @@ class Peminjaman extends Model
         return $this->hasOne(Pengembalian::class, 'peminjaman_id', 'peminjaman_id');
     }
 
+    
+
     public function getRouteKeyName()
     {
         return 'peminjaman_id';

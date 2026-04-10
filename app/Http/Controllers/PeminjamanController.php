@@ -21,7 +21,7 @@ class PeminjamanController extends Controller
 {
     $validated = $request->validate([
         'nama_peminjam_guest' => 'required|string|max:255',
-        'alat_id' => 'required|exists:alat,alat_id',
+        'alat_unit_id' => 'required|exists:alat_units,id', // ✅ CHANGED: unit, bukan alat
         'jumlah' => 'required|integer|min:1',
         'kelas' => 'required|string|max:50',
         'mata_pelajaran' => 'required|string|max:100',  
@@ -30,25 +30,27 @@ class PeminjamanController extends Controller
         'tujuan_peminjaman' => 'nullable|string',
     ]);
 
-    $alat = Alat::find($validated['alat_id']);
-
-    if (!$alat) {
-        return back()->withErrors(['alat_id' => 'Alat tidak ditemukan']);
+    $alatUnit = AlatUnit::find($validated['alat_unit_id']);
+    
+    if (!$alatUnit) {
+        return back()->withErrors(['alat_unit_id' => 'Unit tidak ditemukan']);
     }
 
-    if ($validated['jumlah'] > $alat->stok_tersedia) {
-        return back()->withErrors(['jumlah' => 'Stok tidak cukup. Maksimal: ' . $alat->stok_tersedia . ' unit']);
+    if ($alatUnit->status !== 'tersedia') {
+        return back()->withErrors(['alat_unit_id' => 'Unit sedang tidak tersedia']);
     }
 
-    // ✅ FIX: Variable peminjaman harus accessible di luar closure
-    $peminjaman = null;
+    $alat = $alatUnit->alat;
 
-    DB::transaction(function () use ($validated, $alat, &$peminjaman) {
+    // ... validation ...
+
+    DB::transaction(function () use ($validated, $alatUnit, $alat) {
         $tanggalHariIni = now()->toDateString();
 
         $peminjaman = Peminjaman::create([
             'user_id' => null,
-            'alat_id' => $validated['alat_id'],
+            'alat_id' => $alat->alat_id,
+            'alat_unit_id' => $alatUnit->id, // ✅ NEW: unit spesifik
             'nama_peminjam_guest' => $validated['nama_peminjam_guest'],
             'jumlah' => $validated['jumlah'],
             'tanggal_peminjaman' => $tanggalHariIni,
@@ -57,19 +59,21 @@ class PeminjamanController extends Controller
             'kelas' => $validated['kelas'],
             'mata_pelajaran' => $validated['mata_pelajaran'],  
             'jam_peminjaman' => $validated['jam_peminjaman'],
-            'jam_kembali' => $validated['jam_kembali'],  // ✅ ADD ini juga
+            'jam_kembali' => $validated['jam_kembali'],
             'status' => 'disetujui',
-            'disetujui_oleh' => 1,  // System
+            'disetujui_oleh' => 1,
             'tanggal_disetujui' => now(),
         ]);
 
-        // ✅ KURANGI STOK LANGSUNG
+        // ✅ Update unit status
+        $alatUnit->update(['status' => 'dipinjam']);
+
+        // Stok masih berkurang dari alat (untuk display total)
         $alat->decrement('stok_tersedia', $validated['jumlah']);
 
-        // ✅ LOG AKTIVITAS
         LogAktivitas::create([
             'user_id' => 1,
-            'aktivitas' => 'Guest auto-approve peminjaman - ' . $alat->nama_alat,
+            'aktivitas' => "Peminjaman - Unit {$alatUnit->unit_number}",
             'modul' => 'Peminjaman',
             'timestamp' => now(),
         ]);
