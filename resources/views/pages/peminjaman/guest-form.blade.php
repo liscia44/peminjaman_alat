@@ -889,18 +889,29 @@ function showInstallPrompt() {
   if (!installBtn) {
     installBtn = document.createElement('button');
     installBtn.id = 'installButton';
-    installBtn.innerHTML = '<i class="fas fa-download text-sm"></i>';
-    installBtn.className = 'text-paper hover:text-espresso transition-colors duration-200';
-    installBtn.title = 'Install App';
+    installBtn.innerHTML = '<i class="fas fa-download"></i>';
     installBtn.style.cssText = `
       background: none;
       border: none;
-      font-size: 16px;
+      font-size: 18px;
       cursor: pointer;
-      padding: 8px;
+      padding: 8px 12px;
       margin-right: 12px;
       display: inline-flex;
+      color: #1c1917;
+      transition: all 0.2s;
     `;
+    installBtn.title = 'Install App';
+    
+    // Hover effect
+    installBtn.onmouseover = () => {
+      installBtn.style.transform = 'scale(1.1)';
+      installBtn.style.color = '#fffdf9';
+    };
+    installBtn.onmouseout = () => {
+      installBtn.style.transform = 'scale(1)';
+      installBtn.style.color = '#1c1917';
+    };
     
     const navContainer = document.querySelector('nav .flex.items-center.justify-between');
     if (navContainer) {
