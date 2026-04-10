@@ -189,7 +189,7 @@ public function quickProcess(Request $request)
 {
     $validated = $request->validate([
         'peminjaman_id' => 'required|exists:peminjaman,peminjaman_id',
-        'alat_unit_id' => 'required|exists:alat_units,id', // ✅ NEW
+        'alat_unit_id' => 'required|exists:alat_units,id',
         'kondisi' => 'required|in:baik,rusak,hilang',
         'persen_denda_custom' => 'nullable|numeric|min:0|max:100',
         'tanggal_kembali' => 'required|date',
@@ -200,12 +200,26 @@ public function quickProcess(Request $request)
     $alatUnit = AlatUnit::findOrFail($validated['alat_unit_id']);
     $alat = $alatUnit->alat;
 
-    // ... calculation ...
+    // ✅ Calculate denda
+    $persenDendaRusak = $alat->persen_denda_rusak ?? 30;
+    $kondisi = $validated['kondisi'];
+    $jumlah = $peminjaman->jumlah;
+    $harga = $alat->harga_alat;
 
-    DB::transaction(function () use ($validated, $peminjaman, $alatUnit, $alat, $persenDenda, $dendaDetail) {
+    $dendaDetail = 0;
+    if ($kondisi === 'baik') {
+        $dendaDetail = 0;
+    } elseif ($kondisi === 'rusak') {
+        $persen = $validated['persen_denda_custom'] ?? $persenDendaRusak;
+        $dendaDetail = ($harga * ($persen / 100)) * $jumlah;
+    } elseif ($kondisi === 'hilang') {
+        $dendaDetail = $harga * $jumlah;
+    }
+
+    DB::transaction(function () use ($validated, $peminjaman, $alatUnit, $alat, $kondisi, $dendaDetail, $jumlah) {
         $pengembalian = Pengembalian::create([
             'peminjaman_id' => $validated['peminjaman_id'],
-            'alat_unit_id' => $alatUnit->id, // ✅ NEW
+            'alat_unit_id' => $alatUnit->id,
             'tanggal_kembali_aktual' => $validated['tanggal_kembali'],
             'total_denda' => $dendaDetail,
             'status_denda' => $dendaDetail > 0 ? 'belum_lunas' : 'lunas',
@@ -214,30 +228,37 @@ public function quickProcess(Request $request)
 
         PengembalianDetail::create([
             'pengembalian_id' => $pengembalian->pengembalian_id,
-            'alat_unit_id' => $alatUnit->id, // ✅ NEW
-            'kondisi_alat' => $validated['kondisi'],
-            'jumlah' => $peminjaman->jumlah,
+            'alat_unit_id' => $alatUnit->id,
+            'kondisi_alat' => $kondisi,
+            'jumlah' => $jumlah,
             'harga_alat' => $alat->harga_alat,
-            'persen_denda' => $persenDenda,
+            'persen_denda' => $kondisi === 'baik' ? 0 : ($kondisi === 'rusak' ? ($validated['persen_denda_custom'] ?? 30) : 100),
             'denda_barang' => $dendaDetail,
         ]);
 
         $peminjaman->update(['status' => 'dikembalikan']);
 
-        // ✅ Update unit status
-        if ($validated['kondisi'] === 'baik') {
+        // Update unit status
+        if ($kondisi === 'baik') {
             $alatUnit->update(['status' => 'tersedia']);
+            $alat->increment('stok_tersedia', $jumlah);
         } else {
-            $alatUnit->update(['status' => $validated['kondisi']]);
-        }
-
-        // Stok increment kalau baik
-        if ($validated['kondisi'] === 'baik') {
-            $alat->increment('stok_tersedia', $peminjaman->jumlah);
+            $alatUnit->update(['status' => $kondisi]);
         }
     });
 
-    return response()->json(['success' => true]);
+    LogAktivitas::create([
+        'user_id' => Auth::id(),
+        'aktivitas' => 'Pengembalian Cepat - ' . $alat->nama_alat,
+        'modul' => 'Pengembalian',
+        'timestamp' => now(),
+    ]);
+
+    // ✅ RETURN denda di response
+    return response()->json([
+        'success' => true,
+        'denda' => $dendaDetail  // ← TAMBAH INI!
+    ]);
 }
 
 
