@@ -200,99 +200,157 @@
         @endif
     </div>
 
-    {{-- ══ TAB: SEDANG DIPINJAM ══ --}}
-    <div id="tab-aktif" class="tab-content hidden">
-        @if($peminjamanAktif->isEmpty())
-            <div class="bg-paper border border-rule p-14 text-center">
-                <div class="w-12 h-12 bg-cream border border-rule flex items-center justify-center mx-auto mb-4">
-                    <i class="fas fa-inbox text-ghost text-base"></i>
-                </div>
-                <p class="font-serif text-ink text-lg font-normal mb-1">Tidak ada alat dipinjam</p>
-                <p class="font-sans text-[0.7rem] text-label tracking-wide">Semua alat sedang tersedia.</p>
+   {{-- ══ TAB: SEDANG DIPINJAM ══ --}}
+<div id="tab-aktif" class="tab-content hidden">
+    @if($peminjamanAktif->isEmpty())
+        <div class="bg-paper border border-rule p-14 text-center">
+            <div class="w-12 h-12 bg-cream border border-rule flex items-center justify-center mx-auto mb-4">
+                <i class="fas fa-inbox text-ghost text-base"></i>
             </div>
-        @else
-            <div class="bg-paper border border-rule overflow-hidden">
-                <table class="min-w-full">
-                    <thead>
-                        <tr class="border-b border-rule bg-cream">
-                            <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Alat</th>
-                            <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Peminjam</th>
-                            <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Jumlah</th>
-                            <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Tgl. Pinjam</th>
-                            <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Tgl. Kembali</th>
-                            <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Status</th>
-                            <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-rule">
-                        @foreach($peminjamanAktif as $item)
-                            @php
-                                $today      = now();
-                                $targetDate = $item->tanggal_kembali_rencana;
-                                $isLate     = $today->gt($targetDate);
-                                $daysLeft   = $today->diffInDays($targetDate, false);
-                            @endphp
-                            <tr class="hover:bg-cream/40 transition-colors duration-100
-                                @if($isLate) bg-espresso/[0.03] @elseif($daysLeft <= 1) bg-dim/[0.03] @endif">
+            <p class="font-serif text-ink text-lg font-normal mb-1">Tidak ada alat dipinjam</p>
+            <p class="font-sans text-[0.7rem] text-label tracking-wide">Semua alat sedang tersedia.</p>
+        </div>
+    @else
+        <div class="bg-paper border border-rule overflow-hidden">
+            <table class="min-w-full">
+                <thead>
+                    <tr class="border-b border-rule bg-cream">
+                        <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Alat</th>
+                        <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Peminjam</th>
+                        <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Jumlah</th>
+                        <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Durasi</th>
+                        <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Status Waktu</th>
+                        <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Aksi</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-rule">
+                    @foreach($peminjamanAktif as $item)
+                        @php
+                            // ✅ Parse jam dari format "HH:MM - HH:MM"
+                            $jamMulai = explode(' - ', $item->jam_peminjaman)[0] ?? '-';
+                            $jamSelesai = explode(' - ', $item->jam_kembali)[0] ?? '-';
+                            
+                            // ✅ Mapping jam pelajaran
+                            $jamPelajaran = [
+                                '07:00' => 1,
+                                '08:30' => 2,
+                                '10:00' => 3,
+                                '11:30' => 4,
+                                '13:00' => 5,
+                                '14:30' => 6,
+                            ];
+                            
+                            $jamMulaiNum = $jamPelajaran[$jamMulai] ?? null;
+                            $jamSelesaiNum = $jamPelajaran[$jamSelesai] ?? null;
+                            
+                            // ✅ Hitung durasi jam pelajaran
+                            $durasiJam = ($jamSelesaiNum && $jamMulaiNum) 
+                                ? ($jamSelesaiNum - $jamMulaiNum) 
+                                : 'N/A';
+                            
+                            // ✅ Cek status (belum kembali atau terlambat)
+                            $now = now();
+                            $jamSelesaiTime = \Carbon\Carbon::createFromFormat(
+                                'Y-m-d H:i',
+                                $item->tanggal_kembali_rencana->format('Y-m-d') . ' ' . $jamSelesai,
+                                'Asia/Jakarta'
+                            );
+                            
+                            $isLate = $now->gt($jamSelesaiTime);
+                            $minutesLeft = $now->diffInMinutes($jamSelesaiTime, false);
+                        @endphp
+                        
+                        <tr class="hover:bg-cream/40 transition-colors duration-100
+                            @if($isLate) bg-espresso/[0.03] @elseif($minutesLeft <= 0) bg-dim/[0.03] @endif">
 
-                                <td class="px-5 py-4 font-sans text-[0.78rem] font-medium text-ink whitespace-nowrap">
-                                    {{ $item->alat->nama_alat }}
-                                </td>
-                                <td class="px-5 py-4 font-sans text-[0.78rem] text-label whitespace-nowrap">
-                                    @if($item->isGuest())
-                                        <span class="bg-espresso text-paper px-1.5 py-0.5 rounded text-[0.5rem] font-bold mr-1">GUEST</span>
-                                        {{ $item->nama_peminjam_guest }}
-                                    @else
-                                        {{ $item->user->username }}
-                                    @endif
-                                </td>
-                                <td class="px-5 py-4 font-sans text-[0.78rem] text-label whitespace-nowrap">
-                                    {{ $item->jumlah }} unit
-                                </td>
-                                <td class="px-5 py-4 font-sans text-[0.78rem] text-label whitespace-nowrap">
-                                    {{ $item->tanggal_peminjaman->format('d M Y') }}
-                                </td>
-                                <td class="px-5 py-4 whitespace-nowrap">
+                            <td class="px-5 py-4 font-sans text-[0.78rem] font-medium text-ink whitespace-nowrap">
+                                {{ $item->alat->nama_alat }}
+                            </td>
+                            
+                            <td class="px-5 py-4 font-sans text-[0.78rem] text-label whitespace-nowrap">
+                                @if($item->isGuest())
+                                    <span class="bg-espresso text-paper px-1.5 py-0.5 rounded text-[0.5rem] font-bold mr-1">GUEST</span>
+                                    {{ $item->nama_peminjam_guest }}
+                                @else
+                                    {{ $item->user->username }}
+                                @endif
+                            </td>
+                            
+                            <td class="px-5 py-4 font-sans text-[0.78rem] text-label whitespace-nowrap">
+                                {{ $item->jumlah }} unit
+                            </td>
+
+                            {{-- ✅ DURASI JAM PELAJARAN --}}
+                            <td class="px-5 py-4 whitespace-nowrap">
+                                <div class="bg-cream px-3 py-2 rounded">
                                     <p class="font-sans text-[0.78rem] font-medium text-ink">
-                                        {{ $item->tanggal_kembali_rencana->format('d M Y') }}
+                                        @if($jamMulaiNum && $jamSelesaiNum)
+                                            Jam {{ $jamMulaiNum }} - Jam {{ $jamSelesaiNum }}
+                                        @else
+                                            {{ $jamMulai }} - {{ $jamSelesai }}
+                                        @endif
                                     </p>
-                                    @if($isLate)
-                                        <p class="font-sans text-[0.6rem] text-espresso mt-0.5">
-                                            <i class="fas fa-exclamation-triangle text-[0.5rem]"></i>
-                                            Terlambat {{ abs($daysLeft) }} hari
+                                    <p class="font-sans text-[0.65rem] text-label mt-0.5">
+                                        @if(is_numeric($durasiJam))
+                                            {{ $durasiJam }} jam pelajaran
+                                        @else
+                                            Durasi: {{ $durasiJam }}
+                                        @endif
+                                    </p>
+                                </div>
+                            </td>
+
+                            {{-- ✅ STATUS WAKTU (Belum Selesai / Terlambat) --}}
+                            <td class="px-5 py-4 whitespace-nowrap">
+                                @if($isLate)
+                                    <div class="px-3 py-2 bg-espresso/10 border border-espresso/30 rounded">
+                                        <p class="font-sans text-[0.65rem] font-semibold text-espresso">
+                                            <i class="fas fa-exclamation-circle text-[0.5rem]"></i>
+                                            Terlambat
                                         </p>
-                                    @elseif($daysLeft <= 1)
-                                        <p class="font-sans text-[0.6rem] text-dim mt-0.5">
+                                        <p class="font-sans text-[0.6rem] text-espresso/70">
+                                            Selesai pukul {{ $jamSelesai }}
+                                        </p>
+                                    </div>
+                                @elseif($minutesLeft <= 30 && $minutesLeft > 0)
+                                    <div class="px-3 py-2 bg-dim/10 border border-dim/30 rounded">
+                                        <p class="font-sans text-[0.65rem] font-semibold text-dim">
                                             <i class="fas fa-clock text-[0.5rem]"></i>
-                                            Segera dikembalikan
+                                            Segera Selesai
                                         </p>
-                                    @else
-                                        <p class="font-sans text-[0.6rem] text-ghost mt-0.5">
-                                            Sisa {{ $daysLeft }} hari
+                                        <p class="font-sans text-[0.6rem] text-dim/70">
+                                            {{ ceil($minutesLeft) }} menit lagi
                                         </p>
-                                    @endif
-                                </td>
-                                <td class="px-5 py-4 whitespace-nowrap">
-                                    <span class="px-2.5 py-1 border border-ink/20 bg-ink/5 font-sans text-[0.52rem] font-semibold tracking-[0.15em] uppercase text-ink">
-                                        Disetujui
-                                    </span>
-                                </td>
-                                <td class="px-5 py-4 whitespace-nowrap">
-                                    <a href="{{ route('pengembalian.index') }}"
-                                        class="flex items-center gap-1.5 border border-espresso px-3 py-1.5
-                                               font-sans text-[0.58rem] font-semibold tracking-[0.15em] uppercase text-espresso
-                                               hover:bg-espresso hover:text-paper transition-all duration-200 whitespace-nowrap">
-                                        <i class="fas fa-undo text-xs"></i>
-                                        Catat Kembali
-                                    </a>
-                                </td>
-                            </tr>
-                        @endforeach
-                    </tbody>
-                </table>
-            </div>
-        @endif
-    </div>
+                                    </div>
+                                @else
+                                    <div class="px-3 py-2 bg-ghost/10 border border-ghost/30 rounded">
+                                        <p class="font-sans text-[0.65rem] font-semibold text-ghost">
+                                            <i class="fas fa-hourglass-end text-[0.5rem]"></i>
+                                            Masih Dipinjam
+                                        </p>
+                                        <p class="font-sans text-[0.6rem] text-ghost/70">
+                                            Hingga jam {{ $jamSelesai }}
+                                        </p>
+                                    </div>
+                                @endif
+                            </td>
+                            
+                            <td class="px-5 py-4 whitespace-nowrap">
+                                <a href="{{ route('pengembalian.index') }}"
+                                    class="flex items-center gap-1.5 border border-espresso px-3 py-1.5
+                                           font-sans text-[0.58rem] font-semibold tracking-[0.15em] uppercase text-espresso
+                                           hover:bg-espresso hover:text-paper transition-all duration-200 whitespace-nowrap">
+                                    <i class="fas fa-undo text-xs"></i>
+                                    Catat Kembali
+                                </a>
+                            </td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+</div>
 
     {{-- ══ TAB: SELESAI ══ --}}
     <div id="tab-selesai" class="tab-content hidden">
