@@ -11,7 +11,8 @@
     ];
 
     $inventaris = [];
-    if (in_array($userLevel, ['admin', 'peminjam'])) {
+    // ✅ UPDATED: Add petugas to alat menu
+    if (in_array($userLevel, ['admin', 'petugas', 'peminjam'])) {
         $inventaris[] = ['route' => 'alat.index', 'label' => 'Alat', 'icon' => 'fa-wrench', 'match' => 'alat.*'];
     }
     if ($userLevel === 'admin') {

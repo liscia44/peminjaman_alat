@@ -16,7 +16,8 @@
             <div class="mt-3 h-px w-10 bg-rule"></div>
         </div>
 
-        @if(auth()->user()->level == 'admin')
+        {{-- ✅ UPDATED: Only Admin can add alat --}}
+        @if($userLevel == 'admin')
             <button
                 onclick="openModal()"
                 class="relative overflow-hidden flex items-center gap-2 bg-espresso px-5 py-3
@@ -225,8 +226,8 @@
                             </p>
                         @endif
 
-                        {{-- Action Buttons --}}
-                        @if(auth()->user()->level == 'admin')
+                        {{-- ✅ UPDATED: Action Buttons - Only Admin can edit/delete --}}
+                        @if($userLevel == 'admin')
                             <div class="flex gap-2 pt-3 border-t border-rule mt-auto">
                                 <button
                                     onclick="editAlat({{ $alat->alat_id }}, {{ json_encode($alat) }})"

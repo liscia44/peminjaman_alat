@@ -34,10 +34,10 @@ Route::middleware('auth')->group(function () {
 // ALAT ROUTES
 // ============================================================
 Route::middleware('auth')->group(function () {
-    // View alat - Admin & Peminjam bisa akses
+    // View alat - Admin, Petugas & Peminjam bisa akses ✅ UPDATED
     Route::get('/alat', [AlatController::class, 'index'])
         ->name('alat.index')
-        ->middleware('role:admin,peminjam');
+        ->middleware('role:admin,petugas,peminjam');
     
     // CRUD alat - Hanya Admin
     Route::get('/alat/create', [AlatController::class, 'create'])
