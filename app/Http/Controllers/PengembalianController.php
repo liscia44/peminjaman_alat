@@ -235,7 +235,7 @@ public function quickProcess(Request $request)
             'tanggal_kembali_aktual' => $validated['tanggal_kembali'],
             'total_denda' => $dendaDetail,
             'status_denda' => $dendaDetail > 0 ? 'belum_lunas' : 'lunas',
-            'keterangan' => $validated['keterangan'],
+            'keterangan' => $validated['keterangan'] ?? null,
         ]);
 
         PengembalianDetail::create([
