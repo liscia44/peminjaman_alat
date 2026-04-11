@@ -17,7 +17,7 @@ class AlatUnit extends Model
     ];
 
     protected $attributes = [
-        'status' => 'tersedia',  // ✅ ADD THIS
+        'status' => 'baik',  // ✅ ADD THIS
     ];
 
     public function alat()
