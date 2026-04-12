@@ -219,13 +219,15 @@ public function quickProcess(Request $request)
     $harga = $alat->harga_alat;
 
     $dendaDetail = 0;
-    if ($kondisi === 'baik') {
-        $dendaDetail = 0;
-    } elseif ($kondisi === 'rusak') {
-        $persen = $validated['persen_denda_custom'] ?? $persenDendaRusak;
-        $dendaDetail = ($harga * ($persen / 100)) * $jumlah;
-    } elseif ($kondisi === 'hilang') {
-        $dendaDetail = $harga * $jumlah;
+    if ($alatUnit) {
+        if ($kondisi === 'baik') {
+            $alatUnit->update(['status' => 'tersedia']);
+            $alat->increment('stok_tersedia', $jumlah);
+        } elseif ($kondisi === 'rusak') {
+            $alatUnit->update(['status' => 'rusak']);
+        } elseif ($kondisi === 'hilang') {
+            $alatUnit->update(['status' => 'hilang']);
+        }
     }
 
     DB::transaction(function () use ($validated, $peminjaman, $alatUnit, $alat, $kondisi, $dendaDetail, $jumlah) {
@@ -319,13 +321,8 @@ public function getFromQr(Request $request)
         // }
 
         // Cari peminjaman aktif - spesifik per unit dulu, fallback ke guest
-        $peminjaman = Peminjaman::where(function($q) use ($alatUnit, $alat) {
-                $q->where('alat_unit_id', $alatUnit->id)
-                ->orWhere(function($q2) use ($alat) {
-                    $q2->where('alat_id', $alat->alat_id)
-                        ->whereNull('alat_unit_id');
-                });
-            })
+        // Cari peminjaman aktif HANYA untuk unit yang di-scan
+        $peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
             ->where('status', 'disetujui')
             ->whereDoesntHave('pengembalian')
             ->latest()

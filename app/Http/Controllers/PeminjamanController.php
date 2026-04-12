@@ -45,34 +45,48 @@ class PeminjamanController extends Controller
     $peminjaman = null;
 
     DB::transaction(function () use ($validated, $alat, &$peminjaman) {
-        $peminjaman = Peminjaman::create([
-            'user_id' => null,
-            'alat_id' => $validated['alat_id'],
-            'alat_unit_id' => null,
-            'nama_peminjam_guest' => $validated['nama_peminjam_guest'],
-            'jumlah' => $validated['jumlah'],
-            'tanggal_peminjaman' => $validated['tanggal_peminjaman'],
-            'tanggal_kembali_rencana' => $validated['tanggal_peminjaman'],
-            'tujuan_peminjaman' => $validated['tujuan_peminjaman'] ?? null,
-            'kelas' => $validated['kelas'],
-            'mata_pelajaran' => $validated['mata_pelajaran'],  
-            'jam_peminjaman' => $validated['jam_peminjaman'],
-            'jam_kembali' => $validated['jam_kembali'],
-            'status' => 'disetujui',
-            'disetujui_oleh' => 1,
-            'tanggal_disetujui' => now(),
-        ]);
+    
+    // Cari unit yang tersedia
+    $unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
+        ->where('status', 'tersedia')
+        ->whereDoesntHave('peminjaman', function($q) {
+            $q->whereIn('status', ['menunggu', 'disetujui'])
+              ->whereDoesntHave('pengembalian');
+        })
+        ->first();
 
-        // Kurangi stok
-        $alat->decrement('stok_tersedia', $validated['jumlah']);
+    $peminjaman = Peminjaman::create([
+        'user_id' => null,
+        'alat_id' => $validated['alat_id'],
+        'alat_unit_id' => $unitTersedia?->id, // ← assign unit spesifik
+        'nama_peminjam_guest' => $validated['nama_peminjam_guest'],
+        'jumlah' => $validated['jumlah'],
+        'tanggal_peminjaman' => $validated['tanggal_peminjaman'],
+        'tanggal_kembali_rencana' => $validated['tanggal_peminjaman'],
+        'tujuan_peminjaman' => $validated['tujuan_peminjaman'] ?? null,
+        'kelas' => $validated['kelas'],
+        'mata_pelajaran' => $validated['mata_pelajaran'],
+        'jam_peminjaman' => $validated['jam_peminjaman'],
+        'jam_kembali' => $validated['jam_kembali'],
+        'status' => 'disetujui',
+        'disetujui_oleh' => 1,
+        'tanggal_disetujui' => now(),
+    ]);
 
-        LogAktivitas::create([
-            'user_id' => 1,
-            'aktivitas' => "Peminjaman Guest - {$alat->nama_alat}",
-            'modul' => 'Peminjaman',
-            'timestamp' => now(),
-        ]);
-    });
+    // Update status unit jadi dipinjam
+    if ($unitTersedia) {
+        $unitTersedia->update(['status' => 'dipinjam']);
+    }
+
+    $alat->decrement('stok_tersedia', $validated['jumlah']);
+
+    LogAktivitas::create([
+        'user_id' => 1,
+        'aktivitas' => "Peminjaman Guest - {$alat->nama_alat}",
+        'modul' => 'Peminjaman',
+        'timestamp' => now(),
+    ]);
+});
 
     // ✅ SEKARANG $peminjaman BISA DIAKSES DI SINI
     return redirect()->route('peminjaman.guest')
