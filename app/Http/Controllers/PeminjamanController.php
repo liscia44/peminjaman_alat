@@ -41,6 +41,19 @@ class PeminjamanController extends Controller
         return back()->withErrors(['jumlah' => "Stok tidak cukup. Tersedia hanya {$alat->stok_tersedia} unit"]);
     }
 
+    // Cek apakah unit tersedia (status tersedia)
+$unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
+    ->where('status', 'tersedia')
+    ->whereDoesntHave('peminjaman', function($q) {
+        $q->whereIn('status', ['menunggu', 'disetujui'])
+          ->whereDoesntHave('pengembalian');
+    })
+    ->first();
+
+if (!$unitTersedia) {
+    return back()->withErrors(['alat_id' => 'Semua unit sedang dipinjam atau rusak, tidak tersedia untuk dipinjam']);
+}
+
     // ✅ DECLARE VARIABLE OUTSIDE TRANSACTION
     $peminjaman = null;
 

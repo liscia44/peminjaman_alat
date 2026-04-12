@@ -189,91 +189,89 @@ class PengembalianController extends Controller
     // ✅ API: Proses pengembalian cepat via QR
 public function quickProcess(Request $request)
 {
-    $validated = $request->validate([
-        'peminjaman_id' => 'required|exists:peminjaman,peminjaman_id',
-        'alat_unit_id' => 'nullable|exists:alat_units,id',  // ✅ NULLABLE
-        'alat_id' => 'nullable|exists:alat,alat_id',  // ✅ ADD THIS
-        'kondisi' => 'required|in:baik,rusak,hilang',
-        'persen_denda_custom' => 'nullable|numeric|min:0|max:100',
-        'tanggal_kembali' => 'required|date',
-        'keterangan' => 'nullable|string',
-    ]);
+    try {
+        $validated = $request->validate([
+            'peminjaman_id' => 'required|exists:peminjaman,peminjaman_id',
+            'alat_unit_id' => 'nullable|exists:alat_units,id',
+            'alat_id' => 'nullable|exists:alat,alat_id',
+            'kondisi' => 'required|in:baik,rusak,hilang',
+            'persen_denda_custom' => 'nullable|numeric|min:0|max:100',
+            'tanggal_kembali' => 'required|date',
+            'keterangan' => 'nullable|string',
+        ]);
 
-    $peminjaman = Peminjaman::findOrFail($validated['peminjaman_id']);
-    
-    // ✅ Get alat (from unit atau direct)
-    $alat = null;
-    $alatUnit = null;
-    
-    if (!empty($validated['alat_unit_id'])) {
-        $alatUnit = AlatUnit::findOrFail($validated['alat_unit_id']);
-        $alat = $alatUnit->alat;
-    } else {
-        $alat = Alat::findOrFail($validated['alat_id']);
-    }
+        $peminjaman = Peminjaman::findOrFail($validated['peminjaman_id']);
 
-    // ✅ Calculate denda
-    $persenDendaRusak = $alat->persen_denda_rusak ?? 30;
-    $kondisi = $validated['kondisi'];
-    $jumlah = $peminjaman->jumlah;
-    $harga = $alat->harga_alat;
+        $alat = null;
+        $alatUnit = null;
 
-    $dendaDetail = 0;
-    if ($alatUnit) {
-        if ($kondisi === 'baik') {
-            $alatUnit->update(['status' => 'tersedia']);
-            $alat->increment('stok_tersedia', $jumlah);
-        } elseif ($kondisi === 'rusak') {
-            $alatUnit->update(['status' => 'rusak']);
+        if (!empty($validated['alat_unit_id'])) {
+            $alatUnit = AlatUnit::findOrFail($validated['alat_unit_id']);
+            $alat = $alatUnit->alat;
+        } else {
+            $alat = Alat::findOrFail($validated['alat_id']);
+        }
+
+        $persenDendaRusak = $alat->persen_denda_rusak ?? 30;
+        $kondisi = $validated['kondisi'];
+        $jumlah = $peminjaman->jumlah;
+        $harga = $alat->harga_alat;
+
+        $dendaDetail = 0;
+        if ($kondisi === 'rusak') {
+            $persen = $validated['persen_denda_custom'] ?? $persenDendaRusak;
+            $dendaDetail = ($harga * ($persen / 100)) * $jumlah;
         } elseif ($kondisi === 'hilang') {
-            $alatUnit->update(['status' => 'hilang']);
+            $dendaDetail = $harga * $jumlah;
         }
-    }
 
-    DB::transaction(function () use ($validated, $peminjaman, $alatUnit, $alat, $kondisi, $dendaDetail, $jumlah) {
-        $pengembalian = Pengembalian::create([
-            'peminjaman_id' => $validated['peminjaman_id'],
-            'alat_unit_id' => $alatUnit?->id,  // ✅ NULLABLE
-            'tanggal_kembali_aktual' => $validated['tanggal_kembali'],
-            'total_denda' => $dendaDetail,
-            'status_denda' => $dendaDetail > 0 ? 'belum_lunas' : 'lunas',
-            'keterangan' => $validated['keterangan'] ?? null,
-        ]);
+        DB::transaction(function () use ($validated, $peminjaman, $alatUnit, $alat, $kondisi, $dendaDetail, $jumlah, $persenDendaRusak) {
+            Pengembalian::create([
+                'peminjaman_id' => $validated['peminjaman_id'],
+                'alat_unit_id' => $alatUnit?->id,
+                'tanggal_kembali_aktual' => $validated['tanggal_kembali'],
+                'total_denda' => $dendaDetail,
+                'status_denda' => $dendaDetail > 0 ? 'belum_lunas' : 'lunas',
+                'keterangan' => $validated['keterangan'] ?? null,
+            ]);
 
-        PengembalianDetail::create([
-            'pengembalian_id' => $pengembalian->pengembalian_id,
-            'alat_unit_id' => $alatUnit?->id,  // ✅ NULLABLE
-            'kondisi_alat' => $kondisi,
-            'jumlah' => $jumlah,
-            'harga_alat' => $alat->harga_alat,
-            'persen_denda' => $kondisi === 'baik' ? 0 : ($kondisi === 'rusak' ? ($validated['persen_denda_custom'] ?? 30) : 100),
-            'denda_barang' => $dendaDetail,
-        ]);
+            PengembalianDetail::create([
+                'pengembalian_id' => Pengembalian::latest()->first()->pengembalian_id,
+                'alat_unit_id' => $alatUnit?->id,
+                'kondisi_alat' => $kondisi,
+                'jumlah' => $jumlah,
+                'harga_alat' => $alat->harga_alat,
+                'persen_denda' => $kondisi === 'baik' ? 0 : ($kondisi === 'rusak' ? ($validated['persen_denda_custom'] ?? 30) : 100),
+                'denda_barang' => $dendaDetail,
+            ]);
 
-        $peminjaman->update(['status' => 'dikembalikan']);
+            $peminjaman->update(['status' => 'dikembalikan']);
 
-        // ✅ Update unit status ONLY if ada unit
-        if ($alatUnit) {
-            if ($kondisi === 'baik') {
-                $alatUnit->update(['status' => 'tersedia']);
-                $alat->increment('stok_tersedia', $jumlah);
-            } else {
-                $alatUnit->update(['status' => $kondisi]);
+            // Update status unit — HANYA di sini, tidak di luar transaction
+            if ($alatUnit) {
+                if ($kondisi === 'baik') {
+                    $alatUnit->update(['status' => 'tersedia']);
+                    $alat->increment('stok_tersedia', $jumlah);
+                } elseif ($kondisi === 'rusak') {
+                    $alatUnit->update(['status' => 'rusak']);
+                } elseif ($kondisi === 'hilang') {
+                    $alatUnit->update(['status' => 'hilang']);
+                }
             }
-        }
-    });
+        });
 
-    LogAktivitas::create([
-        'user_id' => Auth::id(),
-        'aktivitas' => 'Pengembalian Cepat - ' . $alat->nama_alat,
-        'modul' => 'Pengembalian',
-        'timestamp' => now(),
-    ]);
+        LogAktivitas::create([
+            'user_id' => Auth::id(),
+            'aktivitas' => 'Pengembalian Cepat - ' . $alat->nama_alat,
+            'modul' => 'Pengembalian',
+            'timestamp' => now(),
+        ]);
 
-    return response()->json([
-        'success' => true,
-        'denda' => $dendaDetail
-    ]);
+        return response()->json(['success' => true, 'denda' => $dendaDetail]);
+
+    } catch (\Exception $e) {
+        return response()->json(['success' => false, 'message' => $e->getMessage()], 500);
+    }
 }
 
 
@@ -306,7 +304,7 @@ public function getFromQr(Request $request)
         $alat = $alatUnit->alat;
 
 
-        // code Cari peminjaman aktif lama
+        // code Cari peminjaman aktif versi lama
         // $peminjaman = Peminjaman::where('alat_id', $alat->alat_id)
         //     ->where('status', 'disetujui')
         //     ->whereDoesntHave('pengembalian')
@@ -322,18 +320,36 @@ public function getFromQr(Request $request)
 
         // Cari peminjaman aktif - spesifik per unit dulu, fallback ke guest
         // Cari peminjaman aktif HANYA untuk unit yang di-scan
-        $peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
-            ->where('status', 'disetujui')
-            ->whereDoesntHave('pengembalian')
-            ->latest()
-            ->first();
+        // Cari berdasarkan unit spesifik
+// Cari berdasarkan unit spesifik
+$peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
+    ->where('status', 'disetujui')
+    ->whereDoesntHave('pengembalian')
+    ->latest()
+    ->first();
 
-        if (!$peminjaman) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Barang ini sedang tidak dipinjam'
-            ], 404);
-        }
+// Fallback: peminjaman lama yang belum punya alat_unit_id
+// Hanya ambil jika HANYA ada 1 peminjaman aktif untuk alat ini
+if (!$peminjaman) {
+    $peminjamanTanpaUnit = Peminjaman::where('alat_id', $alat->alat_id)
+        ->whereNull('alat_unit_id')
+        ->where('status', 'disetujui')
+        ->whereDoesntHave('pengembalian')
+        ->get();
+
+    // Hanya assign jika tepat 1 peminjaman aktif (tidak ambigu)
+    if ($peminjamanTanpaUnit->count() === 1) {
+        $peminjaman = $peminjamanTanpaUnit->first();
+        $peminjaman->update(['alat_unit_id' => $alatUnit->id]);
+    }
+}
+
+if (!$peminjaman) {
+    return response()->json([
+        'success' => false,
+        'message' => 'Barang ini sedang tidak dipinjam'
+    ], 404);
+}
 
         $namaPeminjam = $peminjaman->nama_peminjam_guest
             ?? optional($peminjaman->user)->name
