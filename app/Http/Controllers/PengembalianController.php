@@ -330,16 +330,16 @@ $peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
 
 // Fallback: peminjaman lama yang belum punya alat_unit_id
 // Hanya ambil jika HANYA ada 1 peminjaman aktif untuk alat ini
+// Fallback: peminjaman lama yang belum punya alat_unit_id
 if (!$peminjaman) {
-    $peminjamanTanpaUnit = Peminjaman::where('alat_id', $alat->alat_id)
+    $peminjaman = Peminjaman::where('alat_id', $alat->alat_id)
         ->whereNull('alat_unit_id')
         ->where('status', 'disetujui')
         ->whereDoesntHave('pengembalian')
-        ->get();
+        ->oldest() // ← ambil yang paling lama dulu (FIFO)
+        ->first();
 
-    // Hanya assign jika tepat 1 peminjaman aktif (tidak ambigu)
-    if ($peminjamanTanpaUnit->count() === 1) {
-        $peminjaman = $peminjamanTanpaUnit->first();
+    if ($peminjaman) {
         $peminjaman->update(['alat_unit_id' => $alatUnit->id]);
     }
 }
