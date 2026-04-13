@@ -17,10 +17,7 @@ class PeminjamanController extends Controller
         return view('pages.peminjaman.guest-form');
     }
 
-   // FILE 1: app/Http/Controllers/PeminjamanController.php
-// Bagian guestStore() - PERBAIKI INI
-
-public function guestStore(Request $request)
+   public function guestStore(Request $request)
 {
     $validated = $request->validate([
         'nama_peminjam_guest' => 'required|string|max:255',
@@ -44,32 +41,32 @@ public function guestStore(Request $request)
         return back()->withErrors(['jumlah' => "Stok tidak cukup. Tersedia hanya {$alat->stok_tersedia} unit"]);
     }
 
-    // ✅ FIX: Cek DALAM transaction pakai locking (pessimistic lock)
     $peminjaman = null;
 
     DB::transaction(function () use ($validated, $alat, &$peminjaman) {
         
-        // ✅ PENTING: Gunakan lockForUpdate() untuk mencegah race condition
+        // ✅ FIX: Cari unit yang BENAR-BENAR tersedia (status = 'tersedia' ATAU 'baik')
+        // PENTING: Gunakan whereNotIn untuk exclude status dipinjam, rusak, hilang
         $unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
-            ->whereIn('status', ['tersedia', 'baik'])
-            ->lockForUpdate()  // ← TAMBAH INI
+            ->whereNotIn('status', ['dipinjam', 'rusak', 'hilang'])  // ← PERBAIKI INI
+            ->lockForUpdate()
             ->first();
 
-        // ✅ Cek apakah unit ini punya peminjaman aktif SETELAH lock
-        if ($unitTersedia) {
-            $hasPeminjamanAktif = $unitTersedia->peminjaman()
-                ->where('status', 'disetujui')
-                ->doesntHave('pengembalian')
-                ->exists();
-
-            if ($hasPeminjamanAktif) {
-                throw new \Exception('Unit sedang dipinjam');
-            }
-        } else {
+        if (!$unitTersedia) {
             throw new \Exception('Tidak ada unit tersedia');
         }
 
-        // ✅ Sekarang unit aman untuk dipinjam
+        // ✅ FIX: Cek ULANG apakah unit punya peminjaman aktif dengan status disetujui
+        $hasPeminjamanAktif = Peminjaman::where('alat_unit_id', $unitTersedia->id)
+            ->where('status', 'disetujui')
+            ->doesntHave('pengembalian')  // ← Pastikan belum ada pengembalian
+            ->exists();
+
+        if ($hasPeminjamanAktif) {
+            throw new \Exception('Unit sedang dipinjam oleh peminjam lain');
+        }
+
+        // ✅ SEKARANG unit aman untuk dipinjam
         $peminjaman = Peminjaman::create([
             'user_id' => null,
             'alat_id' => $validated['alat_id'],
@@ -88,7 +85,7 @@ public function guestStore(Request $request)
             'tanggal_disetujui' => now(),
         ]);
 
-        // ✅ Update status unit (SANGAT PENTING)
+        // ✅ UPDATE status unit ke dipinjam
         $unitTersedia->update(['status' => 'dipinjam']);
 
         $alat->decrement('stok_tersedia', $validated['jumlah']);
@@ -99,7 +96,7 @@ public function guestStore(Request $request)
             'modul' => 'Peminjaman',
             'timestamp' => now(),
         ]);
-    }, 3); // ← Retry 3 kali kalau ada deadlock
+    }, 3);
 
     if (!$peminjaman) {
         return back()->withErrors(['alat_id' => 'Gagal membuat peminjaman. Silakan coba lagi.']);

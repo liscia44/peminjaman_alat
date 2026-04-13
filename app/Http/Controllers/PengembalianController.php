@@ -276,9 +276,6 @@ public function quickProcess(Request $request)
 
 
 // ✅ API: Get peminjaman + detail harga dari QR scan
-// FILE 2: app/Http/Controllers/PengembalianController.php
-// Bagian getFromQr() - PERBAIKI INI
-
 public function getFromQr(Request $request)
 {
     try {
@@ -306,15 +303,26 @@ public function getFromQr(Request $request)
 
         $alat = $alatUnit->alat;
 
-        // ✅ FIX: Query yang BENAR - cari berdasarkan alat_unit_id
+        // ✅ FIX: Query yang BENAR
+        // Cari peminjaman dengan kondisi:
+        // 1. alat_unit_id = unit yang di-scan
+        // 2. status = 'disetujui' (APPROVED)
+        // 3. belum ada pengembalian di tabel pengembalian
         $peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
             ->where('status', 'disetujui')
             ->whereDoesntHave('pengembalian')  // ← Pastikan belum dikembalikan
             ->latest()
             ->first();
 
-        // ✅ Jika ada peminjaman dengan alat_unit_id, gunakan itu
-        // Jangan perlu fallback ke yang lama
+        // ✅ DEBUG: Tambah log untuk tracking
+        \Log::info('QR Scan Return - Debug Info', [
+            'alat_unit_id' => $alatUnit->id,
+            'unit_status' => $alatUnit->status,
+            'peminjaman_found' => $peminjaman ? 'YES' : 'NO',
+            'peminjaman_id' => $peminjaman?->peminjaman_id,
+            'peminjaman_status' => $peminjaman?->status,
+            'has_pengembalian' => $peminjaman ? $peminjaman->pengembalian()->exists() : 'N/A',
+        ]);
 
         if (!$peminjaman) {
             return response()->json([
@@ -343,6 +351,11 @@ public function getFromQr(Request $request)
         ]);
 
     } catch (\Exception $e) {
+        \Log::error('QR Scan Return Error', [
+            'message' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
         return response()->json([
             'success' => false,
             'message' => 'Server error: ' . $e->getMessage()
