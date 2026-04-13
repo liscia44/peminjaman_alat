@@ -292,67 +292,56 @@ public function getFromQr(Request $request)
         }
 
         // Cari AlatUnit
-        $alatUnit = null;
-        if (!empty($data['alat_unit_id'])) {
-            $alatUnit = AlatUnit::with('alat')->find($data['alat_unit_id']);
+        if (empty($data['alat_unit_id'])) {
+            return response()->json(['success' => false, 'message' => 'Unit ID tidak ada di QR Code'], 400);
         }
 
+        $alatUnit = AlatUnit::with('alat')->find($data['alat_unit_id']);
+
         if (!$alatUnit) {
-            return response()->json(['success' => false, 'message' => 'Unit tidak ditemukan'], 404);
+            return response()->json(['success' => false, 'message' => 'Unit tidak ditemukan di database'], 404);
         }
 
         $alat = $alatUnit->alat;
 
+        // ✅ FIX: Cari peminjaman AKTIF dengan logic yang TEPAT
+        // Priority 1: Cari peminjaman dengan alat_unit_id yang spesifik
+        $peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
+            ->where('status', 'disetujui')
+            ->doesntHave('pengembalian')  // �� PENTING: Unit ini belum dikembalikan
+            ->latest()
+            ->first();
 
-        // code Cari peminjaman aktif versi lama
-        // $peminjaman = Peminjaman::where('alat_id', $alat->alat_id)
-        //     ->where('status', 'disetujui')
-        //     ->whereDoesntHave('pengembalian')
-        //     ->latest()
-        //     ->first();
+        // Priority 2: Fallback untuk data lama (tanpa alat_unit_id)
+        if (!$peminjaman && $alat) {
+            $peminjaman = Peminjaman::where('alat_id', $alat->alat_id)
+                ->whereNull('alat_unit_id')
+                ->where('status', 'disetujui')
+                ->doesntHave('pengembalian')
+                ->oldest()  // FIFO: ambil yang paling lama (paling urgent)
+                ->first();
 
-        // if (!$peminjaman) {
-        //     return response()->json([
-        //         'success' => false,
-        //         'message' => 'Tidak ada peminjaman aktif untuk barang ini'
-        //     ], 404);
-        // }
+            // ✅ Jika ditemukan, link ke unit yang sedang di-scan
+            if ($peminjaman) {
+                $peminjaman->update(['alat_unit_id' => $alatUnit->id]);
+            }
+        }
 
-        // Cari peminjaman aktif - spesifik per unit dulu, fallback ke guest
-        // Cari peminjaman aktif HANYA untuk unit yang di-scan
-        // Cari berdasarkan unit spesifik
-// Cari berdasarkan unit spesifik
-$peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
-    ->where('status', 'disetujui')
-    ->whereDoesntHave('pengembalian')
-    ->latest()
-    ->first();
-
-// Fallback: peminjaman lama yang belum punya alat_unit_id
-// Hanya ambil jika HANYA ada 1 peminjaman aktif untuk alat ini
-// Fallback: peminjaman lama yang belum punya alat_unit_id
-if (!$peminjaman) {
-    $peminjaman = Peminjaman::where('alat_id', $alat->alat_id)
-        ->whereNull('alat_unit_id')
-        ->where('status', 'disetujui')
-        ->whereDoesntHave('pengembalian')
-        ->oldest() // ← ambil yang paling lama dulu (FIFO)
-        ->first();
-
-    if ($peminjaman) {
-        $peminjaman->update(['alat_unit_id' => $alatUnit->id]);
-    }
-}
-
-if (!$peminjaman) {
-    return response()->json([
-        'success' => false,
-        'message' => 'Barang ini sedang tidak dipinjam'
-    ], 404);
-}
+        // ✅ Jika tidak ada peminjaman aktif, return error
+        if (!$peminjaman) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Barang ini sedang tidak dipinjam atau sudah dikembalikan',
+                'debug' => [
+                    'alat_id' => $alat->alat_id,
+                    'alat_unit_id' => $alatUnit->id,
+                    'alat_nama' => $alat->nama_alat,
+                ]
+            ], 404);
+        }
 
         $namaPeminjam = $peminjaman->nama_peminjam_guest
-            ?? optional($peminjaman->user)->name
+            ?? optional($peminjaman->user)->username
             ?? 'Guest';
 
         return response()->json([
@@ -373,7 +362,10 @@ if (!$peminjaman) {
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Server error: ' . $e->getMessage()
+            'message' => 'Server error: ' . $e->getMessage(),
+            'debug' => [
+                'trace' => env('APP_DEBUG') ? $e->getTraceAsString() : null
+            ]
         ], 500);
     }
 }
