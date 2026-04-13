@@ -180,6 +180,18 @@ Route::middleware('auth')->group(function () {
     Route::delete('/pengembalian/{pengembalian}', [PengembalianController::class, 'destroy'])
         ->name('pengembalian.destroy')
         ->middleware('role:admin');
+
+        // DEBUG SEMENTARA - hapus setelah selesai
+Route::get('/debug-peminjaman', function() {
+    return \App\Models\Peminjaman::where('status', 'disetujui')
+        ->whereDoesntHave('pengembalian')
+        ->select('peminjaman_id', 'alat_id', 'alat_unit_id', 'nama_peminjam_guest', 'status')
+        ->get();
+});
+
+Route::get('/debug-units', function() {
+    return \App\Models\AlatUnit::select('id', 'alat_id', 'unit_number', 'status')->get();
+});
 });
 
 // ============================================================
