@@ -216,6 +216,7 @@
                 <thead>
                     <tr class="border-b border-rule bg-cream">
                         <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Alat</th>
+                        <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Unit</th>
                         <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Peminjam</th>
                         <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Jumlah</th>
                         <th class="px-5 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label">Durasi</th>
@@ -226,39 +227,43 @@
                 <tbody class="divide-y divide-rule">
     @foreach($peminjamanAktif as $item)
         @php
-            // ✅ SAFE parsing dengan proper null checking
             $jamPelajaran = [
                 '07:00' => 1, '08:30' => 2, '10:00' => 3, 
                 '11:30' => 4, '13:00' => 5, '14:30' => 6
             ];
             
-            // Extract jam peminjaman (ALWAYS available)
             $jamMulaiStr = trim(explode(' - ', $item->jam_peminjaman)[0] ?? '07:00');
-            
-            // Extract jam kembali (might be NULL after migration)
-            $jamSelesaiStr = '16:00'; // DEFAULT fallback
+            $jamSelesaiStr = '16:00';
             if ($item->jam_kembali) {
                 $jamSelesaiStr = trim(explode(' - ', $item->jam_kembali)[0] ?? '16:00');
             }
             
-            // Map ke nomor jam pelajaran
             $jamMulaiNum = $jamPelajaran[$jamMulaiStr] ?? null;
             $jamSelesaiNum = $jamPelajaran[$jamSelesaiStr] ?? null;
             
-            // Hitung durasi
             $durasiJam = ($jamMulaiNum && $jamSelesaiNum) 
                 ? ($jamSelesaiNum - $jamMulaiNum) 
                 : 'N/A';
-            
-            // ✅ Status waktu - SIMPLE check (no Carbon parsing)
-            $isLate = false; // Skip carbon parsing yang error
-            $minutesLeft = 100; // Assume masih punya waktu
         @endphp
         
         <tr class="hover:bg-cream/40 transition-colors duration-100">
 
             <td class="px-5 py-4 font-sans text-[0.78rem] font-medium text-ink whitespace-nowrap">
                 {{ $item->alat->nama_alat }}
+            </td>
+
+            {{-- ✅ TAMBAH: Unit Number --}}
+            <td class="px-5 py-4 whitespace-nowrap">
+                @if($item->alatUnit)
+                    <div class="bg-cream px-3 py-2 rounded inline-block">
+                        <p class="font-sans text-[0.75rem] font-bold text-ink">
+                            <i class="fas fa-tag text-[0.6rem] text-label mr-1"></i>
+                            Unit #{{ $item->alatUnit->unit_number }}
+                        </p>
+                    </div>
+                @else
+                    <span class="font-sans text-[0.65rem] text-ghost italic">Tidak ada unit</span>
+                @endif
             </td>
             
             <td class="px-5 py-4 font-sans text-[0.78rem] text-label whitespace-nowrap">
@@ -274,7 +279,6 @@
                 {{ $item->jumlah }} unit
             </td>
 
-            {{-- ✅ DURASI JAM PELAJARAN --}}
             <td class="px-5 py-4 whitespace-nowrap">
                 <div class="bg-cream px-3 py-2 rounded">
                     <p class="font-sans text-[0.78rem] font-medium text-ink">
@@ -294,7 +298,6 @@
                 </div>
             </td>
 
-            {{-- ✅ STATUS WAKTU - SIMPLE --}}
             <td class="px-5 py-4 whitespace-nowrap">
                 <div class="px-3 py-2 bg-ghost/10 border border-ghost/30 rounded">
                     <p class="font-sans text-[0.65rem] font-semibold text-ghost">

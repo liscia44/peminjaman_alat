@@ -123,6 +123,7 @@
                 <tr class="border-b border-rule bg-cream">
                     <th class="px-4 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label whitespace-nowrap">Peminjam</th>
                     <th class="px-4 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label whitespace-nowrap">Alat</th>
+                    <th class="px-4 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label whitespace-nowrap">Unit</th>
                     <th class="px-4 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label whitespace-nowrap">Tgl. Kembali</th>
                     <th class="px-4 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label whitespace-nowrap">Detail Kondisi</th>
                     <th class="px-4 py-3.5 text-left font-sans text-[0.55rem] font-semibold tracking-[0.25em] uppercase text-label whitespace-nowrap">Total Denda</th>
@@ -136,14 +137,35 @@
                 @forelse($pengembalian as $item)
                     <tr class="hover:bg-cream/40 transition-colors duration-100">
 
-                        {{-- ✅ FIXED: Peminjam - Gunakan helper method getNamaPeminjam() --}}
+                        {{-- Peminjam --}}
                         <td class="px-4 py-4 font-sans text-[0.78rem] font-medium text-ink whitespace-nowrap">
                             {{ $item->peminjaman->getNamaPeminjam() ?? '—' }}
                         </td>
 
-                        {{-- ✅ FIXED: Alat --}}
+                        {{-- Alat --}}
                         <td class="px-4 py-4 font-sans text-[0.78rem] text-label whitespace-nowrap">
                             {{ optional(optional($item->peminjaman)->alat)->nama_alat ?? '—' }}
+                        </td>
+
+                        {{-- ✅ TAMBAH: Unit Number --}}
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            @if($item->peminjaman && $item->peminjaman->alatUnit)
+                                <div class="bg-cream px-3 py-2 rounded inline-block">
+                                    <p class="font-sans text-[0.75rem] font-bold text-ink">
+                                        <i class="fas fa-tag text-[0.6rem] text-label mr-1"></i>
+                                        Unit #{{ $item->peminjaman->alatUnit->unit_number }}
+                                    </p>
+                                </div>
+                            @elseif($item->alatUnit)
+                                <div class="bg-cream px-3 py-2 rounded inline-block">
+                                    <p class="font-sans text-[0.75rem] font-bold text-ink">
+                                        <i class="fas fa-tag text-[0.6rem] text-label mr-1"></i>
+                                        Unit #{{ $item->alatUnit->unit_number }}
+                                    </p>
+                                </div>
+                            @else
+                                <span class="font-sans text-[0.65rem] text-ghost italic">Tidak ada unit</span>
+                            @endif
                         </td>
 
                         {{-- Tanggal Kembali --}}
@@ -171,7 +193,6 @@
                                 @endforeach
                             </div>
                         </td>
-
 
                         {{-- Total Denda --}}
                         <td class="px-4 py-4 whitespace-nowrap">

@@ -298,42 +298,55 @@ public function getFromQr(Request $request)
         }
 
         if (!$alatUnit) {
+            \Log::warning('QR Scan - Unit Not Found', ['alat_unit_id' => $data['alat_unit_id'] ?? null]);
             return response()->json(['success' => false, 'message' => 'Unit tidak ditemukan'], 404);
         }
 
         $alat = $alatUnit->alat;
 
-        // ✅ FIX: Query yang BENAR
-        // Cari peminjaman dengan kondisi:
-        // 1. alat_unit_id = unit yang di-scan
-        // 2. status = 'disetujui' (APPROVED)
-        // 3. belum ada pengembalian di tabel pengembalian
+        // ✅ FIX: Query dengan EXPLICIT LEFT JOIN untuk lebih akurat
         $peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
             ->where('status', 'disetujui')
-            ->whereDoesntHave('pengembalian')  // ← Pastikan belum dikembalikan
-            ->latest()
-            ->first();
+            ->leftJoin('pengembalian', 'peminjaman.peminjaman_id', '=', 'pengembalian.peminjaman_id')
+            ->whereNull('pengembalian.pengembalian_id')  // ← Ganti whereDoesntHave
+            ->lockForUpdate()
+            ->latest('peminjaman.created_at')
+            ->first('peminjaman.*');
 
-        // ✅ DEBUG: Tambah log untuk tracking
-        \Log::info('QR Scan Return - Debug Info', [
+        // ✅ DEBUG: Log hasil query
+        \Log::info('QR Scan - Peminjaman Query Result', [
             'alat_unit_id' => $alatUnit->id,
             'unit_status' => $alatUnit->status,
+            'unit_number' => $alatUnit->unit_number,
             'peminjaman_found' => $peminjaman ? 'YES' : 'NO',
             'peminjaman_id' => $peminjaman?->peminjaman_id,
             'peminjaman_status' => $peminjaman?->status,
-            'has_pengembalian' => $peminjaman ? $peminjaman->pengembalian()->exists() : 'N/A',
         ]);
 
         if (!$peminjaman) {
+            \Log::warning('QR Scan - Barang Tidak Sedang Dipinjam', [
+                'alat_unit_id' => $alatUnit->id,
+                'alat_name' => $alat->nama_alat,
+                'unit_status' => $alatUnit->status,
+                'unit_number' => $alatUnit->unit_number,
+            ]);
+
             return response()->json([
                 'success' => false,
-                'message' => 'Barang ini sedang tidak dipinjam atau sudah dikembalikan'
+                'message' => "❌ Unit #{$alatUnit->unit_number} sedang tidak dipinjam atau sudah dikembalikan"
             ], 404);
         }
 
         $namaPeminjam = $peminjaman->nama_peminjam_guest
             ?? optional($peminjaman->user)->name
             ?? 'Guest';
+
+        \Log::info('QR Scan - Berhasil', [
+            'peminjaman_id' => $peminjaman->peminjaman_id,
+            'nama_peminjam' => $namaPeminjam,
+            'alat' => $alat->nama_alat,
+            'unit_number' => $alatUnit->unit_number,
+        ]);
 
         return response()->json([
             'success' => true,
@@ -351,14 +364,14 @@ public function getFromQr(Request $request)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('QR Scan Return Error', [
+        \Log::error('QR Scan Error', [
             'message' => $e->getMessage(),
             'trace' => $e->getTraceAsString(),
         ]);
 
         return response()->json([
             'success' => false,
-            'message' => 'Server error: ' . $e->getMessage()
+            'message' => '❌ Server error: ' . $e->getMessage()
         ], 500);
     }
 }
