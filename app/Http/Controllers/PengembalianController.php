@@ -291,6 +291,13 @@ public function getFromQr(Request $request)
             return response()->json(['success' => false, 'message' => 'Format QR tidak valid'], 400);
         }
 
+        // ✅ DEBUG LOG
+        \Log::info('🔍 QR Scan Started', [
+            'qr_raw' => $qrRaw,
+            'parsed_data' => $data,
+            'alat_unit_id' => $data['alat_unit_id'] ?? null,
+        ]);
+
         // Cari AlatUnit
         $alatUnit = null;
         if (!empty($data['alat_unit_id'])) {
@@ -298,42 +305,51 @@ public function getFromQr(Request $request)
         }
 
         if (!$alatUnit) {
-            \Log::warning('QR Scan - Unit Not Found', ['alat_unit_id' => $data['alat_unit_id'] ?? null]);
-            return response()->json(['success' => false, 'message' => 'Unit tidak ditemukan'], 404);
+            \Log::warning('❌ Unit Not Found', [
+                'alat_unit_id' => $data['alat_unit_id'] ?? null,
+            ]);
+            return response()->json([
+                'success' => false, 
+                'message' => 'Unit tidak ditemukan (ID: ' . ($data['alat_unit_id'] ?? 'null') . ')'
+            ], 404);
         }
 
         $alat = $alatUnit->alat;
 
-        // ✅ FIX: Query dengan EXPLICIT LEFT JOIN untuk lebih akurat
+        \Log::info('✅ Unit Found', [
+            'unit_id' => $alatUnit->id,
+            'unit_number' => $alatUnit->unit_number,
+            'unit_status' => $alatUnit->status,
+            'alat_name' => $alat->nama_alat,
+        ]);
+
+        // ✅ FIXED: Query dengan explicit LEFT JOIN
         $peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
             ->where('status', 'disetujui')
             ->leftJoin('pengembalian', 'peminjaman.peminjaman_id', '=', 'pengembalian.peminjaman_id')
-            ->whereNull('pengembalian.pengembalian_id')  // ← Ganti whereDoesntHave
+            ->whereNull('pengembalian.pengembalian_id')
             ->lockForUpdate()
             ->latest('peminjaman.created_at')
             ->first('peminjaman.*');
 
-        // ✅ DEBUG: Log hasil query
-        \Log::info('QR Scan - Peminjaman Query Result', [
+        \Log::info('🔍 Peminjaman Query Result', [
             'alat_unit_id' => $alatUnit->id,
-            'unit_status' => $alatUnit->status,
-            'unit_number' => $alatUnit->unit_number,
             'peminjaman_found' => $peminjaman ? 'YES' : 'NO',
             'peminjaman_id' => $peminjaman?->peminjaman_id,
             'peminjaman_status' => $peminjaman?->status,
         ]);
 
         if (!$peminjaman) {
-            \Log::warning('QR Scan - Barang Tidak Sedang Dipinjam', [
+            \Log::warning('❌ Barang Tidak Sedang Dipinjam', [
                 'alat_unit_id' => $alatUnit->id,
-                'alat_name' => $alat->nama_alat,
-                'unit_status' => $alatUnit->status,
                 'unit_number' => $alatUnit->unit_number,
+                'unit_status' => $alatUnit->status,
+                'alat_name' => $alat->nama_alat,
             ]);
 
             return response()->json([
                 'success' => false,
-                'message' => "❌ Unit #{$alatUnit->unit_number} sedang tidak dipinjam atau sudah dikembalikan"
+                'message' => "Unit #{$alatUnit->unit_number} sedang tidak dipinjam atau sudah dikembalikan"
             ], 404);
         }
 
@@ -341,7 +357,7 @@ public function getFromQr(Request $request)
             ?? optional($peminjaman->user)->name
             ?? 'Guest';
 
-        \Log::info('QR Scan - Berhasil', [
+        \Log::info('✅ QR Scan Success', [
             'peminjaman_id' => $peminjaman->peminjaman_id,
             'nama_peminjam' => $namaPeminjam,
             'alat' => $alat->nama_alat,
@@ -364,14 +380,14 @@ public function getFromQr(Request $request)
         ]);
 
     } catch (\Exception $e) {
-        \Log::error('QR Scan Error', [
+        \Log::error('❌ QR Scan Error', [
             'message' => $e->getMessage(),
             'trace' => $e->getTraceAsString(),
         ]);
 
         return response()->json([
             'success' => false,
-            'message' => '❌ Server error: ' . $e->getMessage()
+            'message' => 'Server error: ' . $e->getMessage()
         ], 500);
     }
 }

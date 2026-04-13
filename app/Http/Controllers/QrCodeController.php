@@ -18,129 +18,125 @@ class QrCodeController extends Controller
         ]);
     }
 
-    // ✅ UPDATED: Generate QR untuk satu UNIT
-    public function generateQr(AlatUnit $alatUnit)
-    {
-        try {
-            $alat = $alatUnit->alat;
-            
-            // Data yang disimpan di QR: Unit-specific info
-            $qrData = json_encode([
-                'alat_unit_id' => $alatUnit->id,
-                'alat_id' => $alat->alat_id,
-                'nama_alat' => $alat->nama_alat,
-                'nomor_unit' => $alat->nomor_unit,
-                'unit_number' => $alatUnit->unit_number,
-            ]);
+   public function generateQr(AlatUnit $alatUnit)
+{
+    try {
+        $alat = $alatUnit->alat;
+        
+        // ✅ FIXED: Hanya kirim data unit, jangan nomor_unit dari alat
+        $qrData = json_encode([
+            'alat_unit_id' => $alatUnit->id,
+            'alat_id' => $alat->alat_id,
+            'nama_alat' => $alat->nama_alat,
+            'unit_number' => $alatUnit->unit_number,
+            // ✅ REMOVED: 'nomor_unit' => $alat->nomor_unit,
+        ]);
 
-            // Generate QR Code
-            $qrCode = new QrCode($qrData);
-            $qrCode->setSize(300);
-            $qrCode->setMargin(10);
+        $qrCode = new QrCode($qrData);
+        $qrCode->setSize(300);
+        $qrCode->setMargin(10);
 
-            $writer = new PngWriter();
-            $result = $writer->write($qrCode);
+        $writer = new PngWriter();
+        $result = $writer->write($qrCode);
 
-            // Save ke database sebagai base64
-            $base64 = 'data:image/png;base64,' . base64_encode($result->getString());
-            $alatUnit->update(['qr_code' => $base64]);
+        $base64 = 'data:image/png;base64,' . base64_encode($result->getString());
+        $alatUnit->update(['qr_code' => $base64]);
 
-            return response()->json([
-                'success' => true,
-                'message' => "QR Code Unit {$alatUnit->unit_number} berhasil digenerate",
-                'qr_code' => $base64
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Error: ' . $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'success' => true,
+            'message' => "QR Code Unit {$alatUnit->unit_number} berhasil digenerate",
+            'qr_code' => $base64
+        ]);
+    } catch (\Exception $e) {
+        return response()->json([
+            'success' => false,
+            'message' => 'Error: ' . $e->getMessage()
+        ], 500);
     }
+}
 
     // ✅ UPDATED: Generate QR untuk semua UNIT dari satu ALAT
-    public function generateAllQrByAlat(Alat $alat)
-    {
-        try {
-            $units = $alat->units;
-            $successCount = 0;
+   public function generateAllQrByAlat(Alat $alat)
+{
+    try {
+        $units = $alat->units;
+        $successCount = 0;
 
-            foreach ($units as $unit) {
-                try {
-                    $qrData = json_encode([
-                        'alat_unit_id' => $unit->id,
-                        'alat_id' => $alat->alat_id,
-                        'nama_alat' => $alat->nama_alat,
-                        'nomor_unit' => $alat->nomor_unit,
-                        'unit_number' => $unit->unit_number,
-                    ]);
+        foreach ($units as $unit) {
+            try {
+                $qrData = json_encode([
+                    'alat_unit_id' => $unit->id,
+                    'alat_id' => $alat->alat_id,
+                    'nama_alat' => $alat->nama_alat,
+                    'unit_number' => $unit->unit_number,
+                    // ✅ REMOVED: 'nomor_unit' => $alat->nomor_unit,
+                ]);
 
-                    $qrCode = new QrCode($qrData);
-                    $qrCode->setSize(300);
-                    $qrCode->setMargin(10);
+                $qrCode = new QrCode($qrData);
+                $qrCode->setSize(300);
+                $qrCode->setMargin(10);
 
-                    $writer = new PngWriter();
-                    $result = $writer->write($qrCode);
+                $writer = new PngWriter();
+                $result = $writer->write($qrCode);
 
-                    $base64 = 'data:image/png;base64,' . base64_encode($result->getString());
-                    $unit->update(['qr_code' => $base64]);
-                    
-                    $successCount++;
-                } catch (\Exception $e) {
-                    \Log::error("QR generate error: " . $e->getMessage());
-                }
+                $base64 = 'data:image/png;base64,' . base64_encode($result->getString());
+                $unit->update(['qr_code' => $base64]);
+                
+                $successCount++;
+            } catch (\Exception $e) {
+                \Log::error("QR generate error: " . $e->getMessage());
             }
-
-            return redirect()->route('qr-management')
-                ->with('success', "✅ Berhasil generate {$successCount} QR Code untuk {$alat->nama_alat}!");
-        } catch (\Exception $e) {
-            return redirect()->route('qr-management')
-                ->with('error', 'Error: ' . $e->getMessage());
         }
+
+        return redirect()->route('qr-management')
+            ->with('success', "✅ Berhasil generate {$successCount} QR Code untuk {$alat->nama_alat}!");
+    } catch (\Exception $e) {
+        return redirect()->route('qr-management')
+            ->with('error', 'Error: ' . $e->getMessage());
     }
+}
 
-    // ✅ NEW: Generate QR untuk semua UNIT dari semua ALAT
-    public function generateAllQr()
-    {
-        try {
-            $allUnits = AlatUnit::all();
-            $successCount = 0;
+public function generateAllQr()
+{
+    try {
+        $allUnits = AlatUnit::all();
+        $successCount = 0;
 
-            foreach ($allUnits as $unit) {
-                try {
-                    $alat = $unit->alat;
-                    
-                    $qrData = json_encode([
-                        'alat_unit_id' => $unit->id,
-                        'alat_id' => $alat->alat_id,
-                        'nama_alat' => $alat->nama_alat,
-                        'nomor_unit' => $alat->nomor_unit,
-                        'unit_number' => $unit->unit_number,
-                    ]);
+        foreach ($allUnits as $unit) {
+            try {
+                $alat = $unit->alat;
+                
+                $qrData = json_encode([
+                    'alat_unit_id' => $unit->id,
+                    'alat_id' => $alat->alat_id,
+                    'nama_alat' => $alat->nama_alat,
+                    'unit_number' => $unit->unit_number,
+                    // ✅ REMOVED: 'nomor_unit' => $alat->nomor_unit,
+                ]);
 
-                    $qrCode = new QrCode($qrData);
-                    $qrCode->setSize(300);
-                    $qrCode->setMargin(10);
+                $qrCode = new QrCode($qrData);
+                $qrCode->setSize(300);
+                $qrCode->setMargin(10);
 
-                    $writer = new PngWriter();
-                    $result = $writer->write($qrCode);
+                $writer = new PngWriter();
+                $result = $writer->write($qrCode);
 
-                    $base64 = 'data:image/png;base64,' . base64_encode($result->getString());
-                    $unit->update(['qr_code' => $base64]);
-                    
-                    $successCount++;
-                } catch (\Exception $e) {
-                    \Log::error("QR generate error: " . $e->getMessage());
-                }
+                $base64 = 'data:image/png;base64,' . base64_encode($result->getString());
+                $unit->update(['qr_code' => $base64]);
+                
+                $successCount++;
+            } catch (\Exception $e) {
+                \Log::error("QR generate error: " . $e->getMessage());
             }
-
-            return redirect()->route('qr-management')
-                ->with('success', "✅ Berhasil generate {$successCount} QR Code untuk semua unit!");
-        } catch (\Exception $e) {
-            return redirect()->route('qr-management')
-                ->with('error', 'Error: ' . $e->getMessage());
         }
+
+        return redirect()->route('qr-management')
+            ->with('success', "✅ Berhasil generate {$successCount} QR Code untuk semua unit!");
+    } catch (\Exception $e) {
+        return redirect()->route('qr-management')
+            ->with('error', 'Error: ' . $e->getMessage());
     }
+}
 
     // ✅ UPDATED: Download single UNIT QR as PDF
     public function downloadQrPdf(AlatUnit $alatUnit)

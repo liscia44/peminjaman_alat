@@ -46,19 +46,7 @@ class PeminjamanController extends Controller
     try {
         DB::transaction(function () use ($validated, $alat, &$peminjaman) {
             
-            // ✅ FIX #1: Cek apakah ALAT SPESIFIK ini punya peminjaman AKTIF
-            // Query harus HANYA cek alat_id yang sedang di-pinjam
-            $existingBorrow = Peminjaman::where('alat_id', $validated['alat_id'])
-                ->where('status', 'disetujui')
-                ->whereDoesntHave('pengembalian')  // ← PENTING: Harus tidak ada pengembalian
-                ->lockForUpdate()
-                ->first();
-
-            if ($existingBorrow) {
-                throw new \Exception('❌ Alat ini sudah sedang dipinjam oleh ' . ($existingBorrow->nama_peminjam_guest ?? 'peminjam lain') . '. Tunggu hingga dikembalikan.');
-            }
-
-            // ✅ FIX #2: Cari unit TERSEDIA
+            // ✅ STEP 1: Cari unit TERSEDIA (status bukan dipinjam/rusak/hilang)
             $unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
                 ->whereNotIn('status', ['dipinjam', 'rusak', 'hilang'])
                 ->lockForUpdate()
@@ -68,10 +56,11 @@ class PeminjamanController extends Controller
                 throw new \Exception('❌ Tidak ada unit yang tersedia untuk alat ini.');
             }
 
-            // ✅ FIX #3: DOUBLE CHECK unit ini tidak sedang dipinjam
+            // ✅ STEP 2: Cek UNIT SPESIFIK ini tidak sedang dipinjam (double check)
             $unitHasActiveBorrow = Peminjaman::where('alat_unit_id', $unitTersedia->id)
                 ->where('status', 'disetujui')
-                ->whereDoesntHave('pengembalian')
+                ->leftJoin('pengembalian', 'peminjaman.peminjaman_id', '=', 'pengembalian.peminjaman_id')
+                ->whereNull('pengembalian.pengembalian_id')
                 ->lockForUpdate()
                 ->exists();
 
@@ -79,13 +68,13 @@ class PeminjamanController extends Controller
                 throw new \Exception('❌ Unit #' . $unitTersedia->unit_number . ' sedang dipinjam. Coba unit lain.');
             }
 
-            // ✅ FIX #4: Cek stok LAGI sebelum create
+            // ✅ STEP 3: Cek stok lagi sebelum create
             $alat->refresh();
             if ($validated['jumlah'] > $alat->stok_tersedia) {
                 throw new \Exception('❌ Stok tidak cukup. Tersedia hanya ' . $alat->stok_tersedia . ' unit.');
             }
 
-            // ✅ CREATE peminjaman
+            // ✅ STEP 4: CREATE peminjaman
             $peminjaman = Peminjaman::create([
                 'user_id' => null,
                 'alat_id' => $validated['alat_id'],
@@ -104,13 +93,11 @@ class PeminjamanController extends Controller
                 'tanggal_disetujui' => now(),
             ]);
 
-            // ✅ UPDATE status unit
+            // ✅ STEP 5: Update unit status & stock
             $unitTersedia->update(['status' => 'dipinjam']);
-
-            // ✅ Kurangi stok
             $alat->decrement('stok_tersedia', $validated['jumlah']);
 
-            // ✅ Log
+            // ✅ STEP 6: Log
             LogAktivitas::create([
                 'user_id' => 1,
                 'aktivitas' => "✅ Peminjaman Guest - {$alat->nama_alat} (Unit #{$unitTersedia->unit_number})",
@@ -118,21 +105,21 @@ class PeminjamanController extends Controller
                 'timestamp' => now(),
             ]);
 
-            \Log::info('Peminjaman Guest Berhasil', [
+            \Log::info('✅ Peminjaman Guest Berhasil', [
                 'peminjaman_id' => $peminjaman->peminjaman_id,
                 'alat_id' => $validated['alat_id'],
                 'alat_unit_id' => $unitTersedia->id,
+                'unit_number' => $unitTersedia->unit_number,
                 'nama_peminjam' => $validated['nama_peminjam_guest'],
             ]);
 
-        }, 3);
+        }, 3); // Retry 3x
 
     } catch (\Exception $e) {
-        \Log::error('Peminjaman Guest Error', [
+        \Log::error('❌ Peminjaman Guest Error', [
             'message' => $e->getMessage(),
             'alat_id' => $validated['alat_id'],
             'nama_peminjam' => $validated['nama_peminjam_guest'],
-            'stack' => $e->getTraceAsString(),
         ]);
         
         return back()
