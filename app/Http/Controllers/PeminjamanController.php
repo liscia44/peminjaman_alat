@@ -41,16 +41,16 @@ class PeminjamanController extends Controller
         return back()->withErrors(['jumlah' => "Stok tidak cukup. Tersedia hanya {$alat->stok_tersedia} unit"]);
     }
 
-    // Cek apakah unit tersedia (status tersedia)
-$unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
-    ->where('status', 'tersedia')
+// Cek apakah unit tersedia
+$unitTersediaCheck = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
+    ->whereIn('status', ['tersedia', 'baik']) // ← tambah 'baik'
     ->whereDoesntHave('peminjaman', function($q) {
         $q->whereIn('status', ['menunggu', 'disetujui'])
           ->whereDoesntHave('pengembalian');
     })
     ->first();
 
-if (!$unitTersedia) {
+if (!$unitTersediaCheck) {
     return back()->withErrors(['alat_id' => 'Semua unit sedang dipinjam atau rusak, tidak tersedia untuk dipinjam']);
 }
 
@@ -61,10 +61,10 @@ if (!$unitTersedia) {
     
     // Cari unit yang tersedia
     $unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
-        ->where('status', 'tersedia')
+        ->whereIn('status', ['tersedia', 'baik']) // ← tambah 'baik'
         ->whereDoesntHave('peminjaman', function($q) {
             $q->whereIn('status', ['menunggu', 'disetujui'])
-              ->whereDoesntHave('pengembalian');
+            ->whereDoesntHave('pengembalian');
         })
         ->first();
 
