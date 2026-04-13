@@ -292,56 +292,36 @@ public function getFromQr(Request $request)
         }
 
         // Cari AlatUnit
-        if (empty($data['alat_unit_id'])) {
-            return response()->json(['success' => false, 'message' => 'Unit ID tidak ada di QR Code'], 400);
+        $alatUnit = null;
+        if (!empty($data['alat_unit_id'])) {
+            $alatUnit = AlatUnit::with('alat')->find($data['alat_unit_id']);
         }
 
-        $alatUnit = AlatUnit::with('alat')->find($data['alat_unit_id']);
-
         if (!$alatUnit) {
-            return response()->json(['success' => false, 'message' => 'Unit tidak ditemukan di database'], 404);
+            return response()->json(['success' => false, 'message' => 'Unit tidak ditemukan'], 404);
         }
 
         $alat = $alatUnit->alat;
 
-        // ✅ FIX: Cari peminjaman AKTIF dengan logic yang TEPAT
-        // Priority 1: Cari peminjaman dengan alat_unit_id yang spesifik
+        // ✅ FIX: Cari peminjaman SPESIFIK untuk unit ini (TIDAK boleh ada fallback)
         $peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
             ->where('status', 'disetujui')
-            ->doesntHave('pengembalian')  // �� PENTING: Unit ini belum dikembalikan
+            ->whereDoesntHave('pengembalian')
             ->latest()
             ->first();
 
-        // Priority 2: Fallback untuk data lama (tanpa alat_unit_id)
-        if (!$peminjaman && $alat) {
-            $peminjaman = Peminjaman::where('alat_id', $alat->alat_id)
-                ->whereNull('alat_unit_id')
-                ->where('status', 'disetujui')
-                ->doesntHave('pengembalian')
-                ->oldest()  // FIFO: ambil yang paling lama (paling urgent)
-                ->first();
+        // ❌ HAPUS fallback logic yang salah - jangan cari yang whereNull('alat_unit_id')
+        // Karena itu bisa mengambil peminjaman untuk unit lain
 
-            // ✅ Jika ditemukan, link ke unit yang sedang di-scan
-            if ($peminjaman) {
-                $peminjaman->update(['alat_unit_id' => $alatUnit->id]);
-            }
-        }
-
-        // ✅ Jika tidak ada peminjaman aktif, return error
         if (!$peminjaman) {
             return response()->json([
                 'success' => false,
-                'message' => 'Barang ini sedang tidak dipinjam atau sudah dikembalikan',
-                'debug' => [
-                    'alat_id' => $alat->alat_id,
-                    'alat_unit_id' => $alatUnit->id,
-                    'alat_nama' => $alat->nama_alat,
-                ]
+                'message' => 'Barang ini sedang tidak dipinjam atau sudah dikembalikan'
             ], 404);
         }
 
         $namaPeminjam = $peminjaman->nama_peminjam_guest
-            ?? optional($peminjaman->user)->username
+            ?? optional($peminjaman->user)->name
             ?? 'Guest';
 
         return response()->json([
@@ -362,10 +342,7 @@ public function getFromQr(Request $request)
     } catch (\Exception $e) {
         return response()->json([
             'success' => false,
-            'message' => 'Server error: ' . $e->getMessage(),
-            'debug' => [
-                'trace' => env('APP_DEBUG') ? $e->getTraceAsString() : null
-            ]
+            'message' => 'Server error: ' . $e->getMessage()
         ], 500);
     }
 }

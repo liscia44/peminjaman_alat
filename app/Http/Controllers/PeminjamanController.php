@@ -41,13 +41,13 @@ class PeminjamanController extends Controller
         return back()->withErrors(['jumlah' => "Stok tidak cukup. Tersedia hanya {$alat->stok_tersedia} unit"]);
     }
 
-    // ✅ FIX: Cek unit tersedia dengan logic yang BENAR
+    // ✅ FIX: Logic yang BENAR
     $unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
-        ->whereIn('status', ['tersedia', 'baik'])
-        // ✅ PENTING: Pastikan unit TIDAK punya peminjaman aktif yang belum dikembalikan
+        ->where('status', 'tersedia')  // ✅ HANYA status 'tersedia', tidak 'baik'
         ->whereDoesntHave('peminjaman', function($q) {
-            $q->where('status', 'disetujui')  // Hanya cek status disetujui
-              ->doesntHave('pengembalian');    // Dan tidak punya pengembalian (belum dikembalikan)
+            // ✅ Unit TIDAK BOLEH punya peminjaman aktif (status disetujui + belum dikembalikan)
+            $q->where('status', 'disetujui')
+              ->whereDoesntHave('pengembalian');
         })
         ->first();
 
@@ -55,7 +55,6 @@ class PeminjamanController extends Controller
         return back()->withErrors(['alat_id' => 'Semua unit sedang dipinjam atau rusak, tidak tersedia untuk dipinjam']);
     }
 
-    // ✅ DECLARE VARIABLE OUTSIDE TRANSACTION
     $peminjaman = null;
 
     DB::transaction(function () use ($validated, $alat, $unitTersedia, &$peminjaman) {
@@ -63,7 +62,7 @@ class PeminjamanController extends Controller
         $peminjaman = Peminjaman::create([
             'user_id' => null,
             'alat_id' => $validated['alat_id'],
-            'alat_unit_id' => $unitTersedia->id,  // ✅ SELALU assign unit yang sudah dicek
+            'alat_unit_id' => $unitTersedia->id,
             'nama_peminjam_guest' => $validated['nama_peminjam_guest'],
             'jumlah' => $validated['jumlah'],
             'tanggal_peminjaman' => $validated['tanggal_peminjaman'],
@@ -78,9 +77,7 @@ class PeminjamanController extends Controller
             'tanggal_disetujui' => now(),
         ]);
 
-        // ✅ Update status unit jadi dipinjam
         $unitTersedia->update(['status' => 'dipinjam']);
-
         $alat->decrement('stok_tersedia', $validated['jumlah']);
 
         LogAktivitas::create([
@@ -91,11 +88,11 @@ class PeminjamanController extends Controller
         ]);
     });
 
-    // ✅ SEKARANG $peminjaman BISA DIAKSES DI SINI
     return redirect()->route('peminjaman.guest')
         ->with('success', "✅ Peminjaman Disetujui! Kode: <strong>{$peminjaman->kode_peminjaman}</strong>")
         ->with('kode_peminjaman', $peminjaman->kode_peminjaman);
 }
+
 
     // ======= AUTHENTICATED ROUTES =======
     public function index()
