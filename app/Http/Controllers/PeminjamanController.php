@@ -46,10 +46,11 @@ class PeminjamanController extends Controller
     try {
         DB::transaction(function () use ($validated, $alat, &$peminjaman) {
             
-            // ✅ FIX #1: Cek apakah alat sudah ada peminjaman AKTIF (SEBELUM cari unit)
+            // ✅ FIX #1: Cek apakah ALAT SPESIFIK ini punya peminjaman AKTIF
+            // Query harus HANYA cek alat_id yang sedang di-pinjam
             $existingBorrow = Peminjaman::where('alat_id', $validated['alat_id'])
                 ->where('status', 'disetujui')
-                ->whereDoesntHave('pengembalian')
+                ->whereDoesntHave('pengembalian')  // ← PENTING: Harus tidak ada pengembalian
                 ->lockForUpdate()
                 ->first();
 
@@ -57,7 +58,7 @@ class PeminjamanController extends Controller
                 throw new \Exception('❌ Alat ini sudah sedang dipinjam oleh ' . ($existingBorrow->nama_peminjam_guest ?? 'peminjam lain') . '. Tunggu hingga dikembalikan.');
             }
 
-            // ✅ FIX #2: Cari unit TERSEDIA (lock dari awal)
+            // ✅ FIX #2: Cari unit TERSEDIA
             $unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
                 ->whereNotIn('status', ['dipinjam', 'rusak', 'hilang'])
                 ->lockForUpdate()
@@ -78,13 +79,13 @@ class PeminjamanController extends Controller
                 throw new \Exception('❌ Unit #' . $unitTersedia->unit_number . ' sedang dipinjam. Coba unit lain.');
             }
 
-            // ✅ FIX #4: Cek stok LAGI (sebelum create, bisa berubah)
+            // ✅ FIX #4: Cek stok LAGI sebelum create
             $alat->refresh();
             if ($validated['jumlah'] > $alat->stok_tersedia) {
                 throw new \Exception('❌ Stok tidak cukup. Tersedia hanya ' . $alat->stok_tersedia . ' unit.');
             }
 
-            // ✅ SEKARANG BARU CREATE peminjaman
+            // ✅ CREATE peminjaman
             $peminjaman = Peminjaman::create([
                 'user_id' => null,
                 'alat_id' => $validated['alat_id'],
@@ -117,6 +118,13 @@ class PeminjamanController extends Controller
                 'timestamp' => now(),
             ]);
 
+            \Log::info('Peminjaman Guest Berhasil', [
+                'peminjaman_id' => $peminjaman->peminjaman_id,
+                'alat_id' => $validated['alat_id'],
+                'alat_unit_id' => $unitTersedia->id,
+                'nama_peminjam' => $validated['nama_peminjam_guest'],
+            ]);
+
         }, 3);
 
     } catch (\Exception $e) {
@@ -124,7 +132,7 @@ class PeminjamanController extends Controller
             'message' => $e->getMessage(),
             'alat_id' => $validated['alat_id'],
             'nama_peminjam' => $validated['nama_peminjam_guest'],
-            'trace' => $e->getTraceAsString(),
+            'stack' => $e->getTraceAsString(),
         ]);
         
         return back()
