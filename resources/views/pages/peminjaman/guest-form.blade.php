@@ -868,6 +868,73 @@
     window.addEventListener('beforeunload', stopCamera);
 
     console.log('✅ QR Scanner Script initialized (Multi-Item Mode)');
+
+    
+// ✅ ═══════════════════════════════════════════════════════════════
+// ✅ FORM SUBMIT PREVENTION (Cegah Duplikat Submit)
+// ✅ ═══════════════════════════════════════���═══════════════════════
+
+let formSubmitted = false;
+
+document.getElementById('peminjamanForm').addEventListener('submit', function(e) {
+    // ✅ FIX: Cek apakah form sudah di-submit sebelumnya
+    if (formSubmitted) {
+        console.warn('⚠️ Form sudah di-submit! Cegah double submit.');
+        e.preventDefault();
+        return false;
+    }
+
+    // ✅ FIX: Cek duplikat unit di array
+    const unitIds = scannedUnits.map(u => u.alat_unit_id);
+    const uniqueUnits = new Set(unitIds);
+    
+    if (unitIds.length !== uniqueUnits.size) {
+        e.preventDefault();
+        console.warn('❌ Ada unit duplikat!');
+        if (qrStatus) {
+            qrStatus.textContent = '❌ Ada unit yang di-scan lebih dari 1x!';
+            qrStatus.style.color = '#b23d3d';
+        }
+        return false;
+    }
+
+    // ✅ FIX: Validasi alat_id harus ada
+    if (!document.getElementById('alat_id_input').value) {
+        e.preventDefault();
+        console.warn('❌ alat_id kosong!');
+        if (qrStatus) {
+            qrStatus.textContent = '❌ Silakan scan barang terlebih dahulu!';
+            qrStatus.style.color = '#b23d3d';
+        }
+        return false;
+    }
+
+    // ✅ Disable submit button & set flag
+    formSubmitted = true;
+    const submitBtn = document.querySelector('button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<i class="fas fa-spinner text-xs animate-spin"></i> <span>⏳ Memproses...</span>';
+    }
+
+    console.log('✅ Form disubmit. Duplikat submit dicegah.');
+});
+
+// ✅ Reset form submit flag jika user kembali dengan error
+window.addEventListener('load', () => {
+    // Cek apakah ada error message (dari server validation)
+    if (document.querySelector('[role="alert"]') || document.querySelector('.border-espresso')) {
+        formSubmitted = false;
+        const submitBtn = document.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane text-xs"></i> <span>Ajukan Peminjaman</span>';
+        }
+        console.log('✅ Form reset (ada error dari server)');
+    }
+});
+
+console.log('✅ Form Submit Prevention Script initialized');
 </script>
 
 {{-- ✅ PWA - SERVICE WORKER REGISTRATION dengan improved error handling --}}
@@ -965,6 +1032,8 @@ window.addEventListener('appinstalled', () => {
     if (installBtn) installBtn.style.display = 'none';
     deferredPrompt = null;
 });
+
+
 </script>
 
 </body>

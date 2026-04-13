@@ -43,67 +43,101 @@ class PeminjamanController extends Controller
 
     $peminjaman = null;
 
-    DB::transaction(function () use ($validated, $alat, &$peminjaman) {
-        
-        // ✅ FIX: Cari unit yang BENAR-BENAR tersedia (status = 'tersedia' ATAU 'baik')
-        // PENTING: Gunakan whereNotIn untuk exclude status dipinjam, rusak, hilang
-        $unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
-            ->whereNotIn('status', ['dipinjam', 'rusak', 'hilang'])  // ← PERBAIKI INI
-            ->lockForUpdate()
-            ->first();
+    try {
+        DB::transaction(function () use ($validated, $alat, &$peminjaman) {
+            
+            // ✅ FIX #1: Cek apakah alat sudah ada peminjaman AKTIF (SEBELUM cari unit)
+            $existingBorrow = Peminjaman::where('alat_id', $validated['alat_id'])
+                ->where('status', 'disetujui')
+                ->whereDoesntHave('pengembalian')
+                ->lockForUpdate()
+                ->first();
 
-        if (!$unitTersedia) {
-            throw new \Exception('Tidak ada unit tersedia');
-        }
+            if ($existingBorrow) {
+                throw new \Exception('❌ Alat ini sudah sedang dipinjam oleh ' . ($existingBorrow->nama_peminjam_guest ?? 'peminjam lain') . '. Tunggu hingga dikembalikan.');
+            }
 
-        // ✅ FIX: Cek ULANG apakah unit punya peminjaman aktif dengan status disetujui
-        $hasPeminjamanAktif = Peminjaman::where('alat_unit_id', $unitTersedia->id)
-            ->where('status', 'disetujui')
-            ->doesntHave('pengembalian')  // ← Pastikan belum ada pengembalian
-            ->exists();
+            // ✅ FIX #2: Cari unit TERSEDIA (lock dari awal)
+            $unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
+                ->whereNotIn('status', ['dipinjam', 'rusak', 'hilang'])
+                ->lockForUpdate()
+                ->first();
 
-        if ($hasPeminjamanAktif) {
-            throw new \Exception('Unit sedang dipinjam oleh peminjam lain');
-        }
+            if (!$unitTersedia) {
+                throw new \Exception('❌ Tidak ada unit yang tersedia untuk alat ini.');
+            }
 
-        // ✅ SEKARANG unit aman untuk dipinjam
-        $peminjaman = Peminjaman::create([
-            'user_id' => null,
+            // ✅ FIX #3: DOUBLE CHECK unit ini tidak sedang dipinjam
+            $unitHasActiveBorrow = Peminjaman::where('alat_unit_id', $unitTersedia->id)
+                ->where('status', 'disetujui')
+                ->whereDoesntHave('pengembalian')
+                ->lockForUpdate()
+                ->exists();
+
+            if ($unitHasActiveBorrow) {
+                throw new \Exception('❌ Unit #' . $unitTersedia->unit_number . ' sedang dipinjam. Coba unit lain.');
+            }
+
+            // ✅ FIX #4: Cek stok LAGI (sebelum create, bisa berubah)
+            $alat->refresh();
+            if ($validated['jumlah'] > $alat->stok_tersedia) {
+                throw new \Exception('❌ Stok tidak cukup. Tersedia hanya ' . $alat->stok_tersedia . ' unit.');
+            }
+
+            // ✅ SEKARANG BARU CREATE peminjaman
+            $peminjaman = Peminjaman::create([
+                'user_id' => null,
+                'alat_id' => $validated['alat_id'],
+                'alat_unit_id' => $unitTersedia->id,
+                'nama_peminjam_guest' => $validated['nama_peminjam_guest'],
+                'jumlah' => $validated['jumlah'],
+                'tanggal_peminjaman' => $validated['tanggal_peminjaman'],
+                'tanggal_kembali_rencana' => $validated['tanggal_peminjaman'],
+                'tujuan_peminjaman' => $validated['tujuan_peminjaman'] ?? null,
+                'kelas' => $validated['kelas'],
+                'mata_pelajaran' => $validated['mata_pelajaran'],
+                'jam_peminjaman' => $validated['jam_peminjaman'],
+                'jam_kembali' => $validated['jam_kembali'],
+                'status' => 'disetujui',
+                'disetujui_oleh' => 1,
+                'tanggal_disetujui' => now(),
+            ]);
+
+            // ✅ UPDATE status unit
+            $unitTersedia->update(['status' => 'dipinjam']);
+
+            // ✅ Kurangi stok
+            $alat->decrement('stok_tersedia', $validated['jumlah']);
+
+            // ✅ Log
+            LogAktivitas::create([
+                'user_id' => 1,
+                'aktivitas' => "✅ Peminjaman Guest - {$alat->nama_alat} (Unit #{$unitTersedia->unit_number})",
+                'modul' => 'Peminjaman',
+                'timestamp' => now(),
+            ]);
+
+        }, 3);
+
+    } catch (\Exception $e) {
+        \Log::error('Peminjaman Guest Error', [
+            'message' => $e->getMessage(),
             'alat_id' => $validated['alat_id'],
-            'alat_unit_id' => $unitTersedia->id,
-            'nama_peminjam_guest' => $validated['nama_peminjam_guest'],
-            'jumlah' => $validated['jumlah'],
-            'tanggal_peminjaman' => $validated['tanggal_peminjaman'],
-            'tanggal_kembali_rencana' => $validated['tanggal_peminjaman'],
-            'tujuan_peminjaman' => $validated['tujuan_peminjaman'] ?? null,
-            'kelas' => $validated['kelas'],
-            'mata_pelajaran' => $validated['mata_pelajaran'],
-            'jam_peminjaman' => $validated['jam_peminjaman'],
-            'jam_kembali' => $validated['jam_kembali'],
-            'status' => 'disetujui',
-            'disetujui_oleh' => 1,
-            'tanggal_disetujui' => now(),
+            'nama_peminjam' => $validated['nama_peminjam_guest'],
+            'trace' => $e->getTraceAsString(),
         ]);
-
-        // ✅ UPDATE status unit ke dipinjam
-        $unitTersedia->update(['status' => 'dipinjam']);
-
-        $alat->decrement('stok_tersedia', $validated['jumlah']);
-
-        LogAktivitas::create([
-            'user_id' => 1,
-            'aktivitas' => "Peminjaman Guest - {$alat->nama_alat} (Unit {$unitTersedia->unit_number})",
-            'modul' => 'Peminjaman',
-            'timestamp' => now(),
-        ]);
-    }, 3);
+        
+        return back()
+            ->withErrors(['alat_id' => $e->getMessage()])
+            ->withInput();
+    }
 
     if (!$peminjaman) {
         return back()->withErrors(['alat_id' => 'Gagal membuat peminjaman. Silakan coba lagi.']);
     }
 
     return redirect()->route('peminjaman.guest')
-        ->with('success', "✅ Peminjaman Disetujui! Kode: <strong>{$peminjaman->kode_peminjaman}</strong>")
+        ->with('success', "✅ PEMINJAMAN DITERIMA! 🎉<br>Kode: <strong>{$peminjaman->kode_peminjaman}</strong><br>Unit: <strong>#{$peminjaman->alatUnit->unit_number}</strong>")
         ->with('kode_peminjaman', $peminjaman->kode_peminjaman);
 }
 
