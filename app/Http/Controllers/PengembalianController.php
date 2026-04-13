@@ -276,6 +276,9 @@ public function quickProcess(Request $request)
 
 
 // ✅ API: Get peminjaman + detail harga dari QR scan
+// FILE 2: app/Http/Controllers/PengembalianController.php
+// Bagian getFromQr() - PERBAIKI INI
+
 public function getFromQr(Request $request)
 {
     try {
@@ -303,15 +306,15 @@ public function getFromQr(Request $request)
 
         $alat = $alatUnit->alat;
 
-        // ✅ FIX: Cari peminjaman SPESIFIK untuk unit ini (TIDAK boleh ada fallback)
+        // ✅ FIX: Query yang BENAR - cari berdasarkan alat_unit_id
         $peminjaman = Peminjaman::where('alat_unit_id', $alatUnit->id)
             ->where('status', 'disetujui')
-            ->whereDoesntHave('pengembalian')
+            ->whereDoesntHave('pengembalian')  // ← Pastikan belum dikembalikan
             ->latest()
             ->first();
 
-        // ❌ HAPUS fallback logic yang salah - jangan cari yang whereNull('alat_unit_id')
-        // Karena itu bisa mengambil peminjaman untuk unit lain
+        // ✅ Jika ada peminjaman dengan alat_unit_id, gunakan itu
+        // Jangan perlu fallback ke yang lama
 
         if (!$peminjaman) {
             return response()->json([

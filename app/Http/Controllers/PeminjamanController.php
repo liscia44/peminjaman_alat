@@ -17,7 +17,10 @@ class PeminjamanController extends Controller
         return view('pages.peminjaman.guest-form');
     }
 
-   public function guestStore(Request $request)
+   // FILE 1: app/Http/Controllers/PeminjamanController.php
+// Bagian guestStore() - PERBAIKI INI
+
+public function guestStore(Request $request)
 {
     $validated = $request->validate([
         'nama_peminjam_guest' => 'required|string|max:255',
@@ -41,24 +44,32 @@ class PeminjamanController extends Controller
         return back()->withErrors(['jumlah' => "Stok tidak cukup. Tersedia hanya {$alat->stok_tersedia} unit"]);
     }
 
-    // ✅ FIX: Logic yang BENAR
-    $unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
-        ->where('status', 'tersedia')  // ✅ HANYA status 'tersedia', tidak 'baik'
-        ->whereDoesntHave('peminjaman', function($q) {
-            // ✅ Unit TIDAK BOLEH punya peminjaman aktif (status disetujui + belum dikembalikan)
-            $q->where('status', 'disetujui')
-              ->whereDoesntHave('pengembalian');
-        })
-        ->first();
-
-    if (!$unitTersedia) {
-        return back()->withErrors(['alat_id' => 'Semua unit sedang dipinjam atau rusak, tidak tersedia untuk dipinjam']);
-    }
-
+    // ✅ FIX: Cek DALAM transaction pakai locking (pessimistic lock)
     $peminjaman = null;
 
-    DB::transaction(function () use ($validated, $alat, $unitTersedia, &$peminjaman) {
+    DB::transaction(function () use ($validated, $alat, &$peminjaman) {
         
+        // ✅ PENTING: Gunakan lockForUpdate() untuk mencegah race condition
+        $unitTersedia = \App\Models\AlatUnit::where('alat_id', $validated['alat_id'])
+            ->whereIn('status', ['tersedia', 'baik'])
+            ->lockForUpdate()  // ← TAMBAH INI
+            ->first();
+
+        // ✅ Cek apakah unit ini punya peminjaman aktif SETELAH lock
+        if ($unitTersedia) {
+            $hasPeminjamanAktif = $unitTersedia->peminjaman()
+                ->where('status', 'disetujui')
+                ->doesntHave('pengembalian')
+                ->exists();
+
+            if ($hasPeminjamanAktif) {
+                throw new \Exception('Unit sedang dipinjam');
+            }
+        } else {
+            throw new \Exception('Tidak ada unit tersedia');
+        }
+
+        // ✅ Sekarang unit aman untuk dipinjam
         $peminjaman = Peminjaman::create([
             'user_id' => null,
             'alat_id' => $validated['alat_id'],
@@ -77,7 +88,9 @@ class PeminjamanController extends Controller
             'tanggal_disetujui' => now(),
         ]);
 
+        // ✅ Update status unit (SANGAT PENTING)
         $unitTersedia->update(['status' => 'dipinjam']);
+
         $alat->decrement('stok_tersedia', $validated['jumlah']);
 
         LogAktivitas::create([
@@ -86,7 +99,11 @@ class PeminjamanController extends Controller
             'modul' => 'Peminjaman',
             'timestamp' => now(),
         ]);
-    });
+    }, 3); // ← Retry 3 kali kalau ada deadlock
+
+    if (!$peminjaman) {
+        return back()->withErrors(['alat_id' => 'Gagal membuat peminjaman. Silakan coba lagi.']);
+    }
 
     return redirect()->route('peminjaman.guest')
         ->with('success', "✅ Peminjaman Disetujui! Kode: <strong>{$peminjaman->kode_peminjaman}</strong>")
